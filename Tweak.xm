@@ -1,4 +1,7 @@
 #import <UIKit/UIKit.h>
+#include <dlfcn.h>
+#include <stdio.h>
+#include <unistd.h>
 
 // ============================================================
 // Preferences
@@ -415,8 +418,36 @@ static void RoundIconsInView(UIView *view) {
 // Constructor
 // ============================================================
 
+static void L16DBG(NSString *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    NSString *msg = [[NSString alloc] initWithFormat:fmt arguments:args];
+    va_end(args);
+    NSString *tmp = NSTemporaryDirectory();
+    NSString *line = [NSString stringWithFormat:@"[L16T:%d] %@\n", getpid(), msg];
+    NSString *paths[] = {
+        @"/tmp/little16tweak.log",
+        [NSString stringWithFormat:@"%@little16tweak.log", tmp ?: @""],
+        [NSString stringWithFormat:@"%@/little16tweak.log", NSHomeDirectory() ?: @""],
+    };
+    for (int i = 0; i < 3; i++) {
+        FILE *f = fopen([paths[i] UTF8String], "ab");
+        if (f) { fputs([line UTF8String], f); fclose(f); }
+    }
+    NSLog(@"L16Tweak: %@", msg);
+}
+
+%hookf(void *, dlopen, const char *path, int mode) {
+    void *h = %orig(path, mode);
+    if (path != NULL && (strstr(path, "Little16") || strstr(path, "PreferenceBundles"))) {
+        L16DBG(@"dlopen(%s) -> %p err=%s", path, h, dlerror());
+    }
+    return h;
+}
+
 %ctor {
     @autoreleasepool {
+        L16DBG(@"ctor in %@ pid=%d", [[NSBundle mainBundle] bundleIdentifier], getpid());
         loadPreferences();
 
         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
