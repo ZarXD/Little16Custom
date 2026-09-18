@@ -1,0 +1,10 @@
+Package: com.michaelmelita1.little16
+Name: Little16
+Author: michaelmelita1
+Description: iPhone X gestures for iOS 16 - fully customizable settings
+Depends: mobilesubstrate, preferenceloader
+Maintainer: michaelmelita1
+Architecture: iphoneos-arm64
+Section: Tweaks
+Version: 1.0.0
+Sileodepiction: https://michaelmelita1.github.io/sileodepictions/com.michaelmelita1.little16/info.json

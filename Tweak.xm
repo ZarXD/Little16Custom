@@ -1,0 +1,450 @@
+#import <UIKit/UIKit.h>
+
+// ============================================================
+// Preferences
+// ============================================================
+
+static NSString *const kPrefsID = @"com.michaelmelita1.little16";
+static NSString *const kNotification = @"com.michaelmelita1.little16/prefsUpdated";
+
+static BOOL enabled = YES;
+static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad
+static NSInteger dockStyle = 1;           // 0 = Legacy, 1 = iPad (floating)
+static NSInteger ccPosition = 3;          // 3 = Top Right (status bar), 1 = Bottom Right, 2 = Bottom Left, 0 = Disabled
+static BOOL hideDockBackground = NO;
+static BOOL enableRecents = YES;
+static BOOL removeAppLibrary = NO;
+static BOOL enableQuickActions = YES;
+static BOOL roundedAppSwitcher = NO;
+static BOOL roundedDockRecents = NO;
+static BOOL showHomeBar = NO;
+
+#define MAX_DOCK_ICONS 4
+#define MAX_RECENTS 3
+
+static NSString *PrefsFilePath(void) {
+    NSString *normal = @"/var/mobile/Library/Preferences/com.michaelmelita1.little16.plist";
+    NSString *jb = @"/var/jb/var/mobile/Library/Preferences/com.michaelmelita1.little16.plist";
+    return [[NSFileManager defaultManager] fileExistsAtPath:normal] ? normal : jb;
+}
+
+static void loadPreferences(void) {
+    @autoreleasepool {
+        NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PrefsFilePath()];
+        if (!dict) return;
+
+        if (dict[@"enabled"]) enabled = [dict[@"enabled"] boolValue];
+        if (dict[@"statusBarStyle"]) statusBarStyle = [dict[@"statusBarStyle"] integerValue];
+        if (dict[@"dockStyle"]) dockStyle = [dict[@"dockStyle"] integerValue];
+        if (dict[@"ccPosition"]) ccPosition = [dict[@"ccPosition"] integerValue];
+        if (dict[@"hideDockBackground"]) hideDockBackground = [dict[@"hideDockBackground"] boolValue];
+        if (dict[@"enableRecents"]) enableRecents = [dict[@"enableRecents"] boolValue];
+        if (dict[@"removeAppLibrary"]) removeAppLibrary = [dict[@"removeAppLibrary"] boolValue];
+        if (dict[@"enableQuickActions"]) enableQuickActions = [dict[@"enableQuickActions"] boolValue];
+        if (dict[@"roundedAppSwitcher"]) roundedAppSwitcher = [dict[@"roundedAppSwitcher"] boolValue];
+        if (dict[@"roundedDockRecents"]) roundedDockRecents = [dict[@"roundedDockRecents"] boolValue];
+        if (dict[@"showHomeBar"]) showHomeBar = [dict[@"showHomeBar"] boolValue];
+    }
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+
+static BOOL ViewContainsClass(UIView *view, Class targetClass, int depth) {
+    if (!view || depth > 20) return NO;
+    if ([view isKindOfClass:targetClass]) return YES;
+    for (UIView *sub in view.subviews) {
+        if (ViewContainsClass(sub, targetClass, depth + 1)) return YES;
+    }
+    return NO;
+}
+
+static void RoundIconsInView(UIView *view) {
+    for (UIView *sub in view.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"SBIconView")] ||
+            [sub isKindOfClass:NSClassFromString(@"SBIconImageView")]) {
+            sub.layer.cornerRadius = 14.0;
+            sub.layer.masksToBounds = YES;
+            sub.clipsToBounds = YES;
+        }
+        RoundIconsInView(sub);
+    }
+}
+
+// ============================================================
+// Core: home gestures + home indicator
+// ============================================================
+
+%group Core
+
+%hook SBHomeGestureSettings
+- (bool)isHomeGestureEnabled {
+    return 1;
+}
+%end
+
+%hook SBFHomeGrabberSettings
+- (BOOL)isEnabled {
+    return showHomeBar;
+}
+
+- (void)setEnabled:(BOOL)arg1 {
+    %orig(showHomeBar);
+}
+%end
+
+%end
+
+// ============================================================
+// Status Bar
+// ============================================================
+
+%group StatusBarPad
+
+%hook _UIStatusBarVisualProvider_iOS
++ (Class)class {
+    return %c(_UIStatusBarVisualProvider_Pad_ForcedCellular);
+}
+%end
+
+%end
+
+// ============================================================
+// Dock (iPad / floating)
+// ============================================================
+
+#pragma mark Dock interfaces
+
+@interface SBIconListGridLayoutConfiguration : NSObject
+@property (nonatomic) unsigned long long numberOfPortraitRows;
+@property (nonatomic) unsigned long long numberOfPortraitColumns;
+@end
+
+@interface SBIconListView : UIView
+@property (nonatomic, strong) NSString *iconLocation;
+@end
+
+@interface SBBestAppSuggestion : NSObject
+- (BOOL)isHandoff;
+@end
+
+@interface SBFloatingDockSuggestionsModel : NSObject
+@property (nonatomic, readonly) SBBestAppSuggestion *currentAppSuggestion;
+- (BOOL)_shouldProcessAppSuggestion:(id)arg1;
+- (void)_setRecentsEnabled:(BOOL)arg1;
+-(unsigned long long)maxSuggestions;
+@end
+
+@interface SBFloatingDockSuggestionsViewController : UIViewController
+@end
+
+@interface SBFloatingDockController : NSObject
++ (BOOL)isFloatingDockSupported;
+@end
+
+@interface SBFloatingDockDefaults : NSObject
+- (void)setRecentsEnabled:(BOOL)arg1;
+- (BOOL)recentsEnabled;
+- (void)setAppLibraryEnabled:(BOOL)arg1;
+- (BOOL)appLibraryEnabled;
+@end
+
+%group DockiPad
+
+%hook SBFloatingDockController
++ (BOOL)isFloatingDockSupported {
+    return YES;
+}
+- (void)_configureFloatingDockBehaviorAssertionForOpenFolder:(id)arg1 atLevel:(NSUInteger)arg2 {
+}
+%end
+
+%hook SBFloatingDockDefaults
+- (void)setRecentsEnabled:(BOOL)arg1 {
+    %orig(enableRecents);
+}
+- (BOOL)recentsEnabled {
+    return enableRecents;
+}
+- (void)setAppLibraryEnabled:(BOOL)arg1 {
+    %orig(!removeAppLibrary);
+}
+- (BOOL)appLibraryEnabled {
+    return !removeAppLibrary;
+}
+%end
+
+%hook SBIconListGridLayoutConfiguration
+- (unsigned long long)numberOfPortraitColumns {
+    unsigned long long o = %orig;
+    if ([self numberOfPortraitRows] == 1 && o == 4) {
+        return MAX_DOCK_ICONS;
+    }
+    return o;
+}
+%end
+
+%hook SBIconListView
+- (unsigned long long)maximumIconCount {
+    if ([self.iconLocation isEqual:@"SBIconLocationDock"]) {
+        return MAX_DOCK_ICONS;
+    }
+    return %orig;
+}
+%end
+
+%hook SBFloatingDockSuggestionsModel
+- (BOOL)recentDisplayItemsController:(id)arg1 shouldAddItem:(id)arg2 {
+    if ([self.currentAppSuggestion isHandoff]) return NO;
+    return %orig;
+}
+
+// iOS 16
+- (id)initWithMaximumNumberOfSuggestions:(NSUInteger)arg1 iconController:(id)arg2 recentsController:(id)arg3 recentsDataStore:(id)arg4 recentsDefaults:(id)arg5 floatingDockDefaults:(id)arg6 appSuggestionManager:(id)arg7 applicationController:(id)arg8 {
+    return %orig(MAX_RECENTS, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+}
+
+// iOS 15
+- (id)initWithMaximumNumberOfSuggestions:(unsigned long long)arg1 iconController:(id)arg2 recentsController:(id)arg3 recentsDataStore:(id)arg4 recentsDefaults:(id)arg5 floatingDockDefaults:(id)arg6 appSuggestionManager:(id)arg7 analyticsClient:(id)arg8 applicationController:(id)arg9 {
+    return %orig(MAX_RECENTS, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+}
+
+- (unsigned long long)maxSuggestions {
+    return MAX_RECENTS;
+}
+%end
+
+%hook SBFloatingDockSuggestionsViewController
+- (id)initWithNumberOfRecents:(unsigned long long)arg1 iconController:(id)arg2 applicationController:(id)arg3 layoutStateTransitionCoordinator:(id)arg4 suggestionsModel:(id)arg5 iconViewProvider:(id)arg6 {
+    return %orig(MAX_RECENTS, arg2, arg3, arg4, arg5, arg6);
+}
+%end
+
+%end
+
+%group NoRecents
+
+%hook SBFloatingDockSuggestionsModel
+- (BOOL)_shouldProcessAppSuggestion:(id)arg1 {
+    return NO;
+}
+
+- (void)_setRecentsEnabled:(BOOL)arg1 {
+    %orig(NO);
+}
+%end
+
+%end
+
+// ============================================================
+// Dock background (hide)
+// ============================================================
+
+@interface SBFloatingDockPlatterView : UIView
+@property (nonatomic, strong) UIView *backgroundView;
+@end
+
+%group DockPlatter
+
+%hook SBFloatingDockPlatterView
+- (void)setBackgroundView:(UIView *)arg1 {
+    %orig;
+    if (hideDockBackground) {
+        self.backgroundView.hidden = YES;
+    }
+}
+%end
+
+%end
+
+// ============================================================
+// Rounded dock recents
+// ============================================================
+
+@interface SBFloatingDockSuggestionsView : UIView
+@end
+
+%group RoundedRecents
+
+%hook SBFloatingDockSuggestionsView
+- (void)layoutSubviews {
+    %orig;
+    RoundIconsInView(self);
+}
+%end
+
+%end
+
+// ============================================================
+// Control Center
+// ============================================================
+
+%group CCHomeGesture
+
+%hook CCSControlCenterDefaults
+- (unsigned long long)_defaultPresentationGesture {
+    return 1;
+}
+%end
+
+%end
+
+%group CCBottomRight
+
+%hook SBControlCenterController
+- (unsigned long long)presentingEdge {
+    return 1;
+}
+%end
+
+%end
+
+%group CCBottomLeft
+
+%hook SBControlCenterController
+- (unsigned long long)presentingEdge {
+    return 2;
+}
+%end
+
+%end
+
+%group CCDisabled
+
+%hook CCSControlCenterDefaults
+- (unsigned long long)_defaultPresentationGesture {
+    return 0;
+}
+%end
+
+%end
+
+// ============================================================
+// Lock screen quick actions
+// ============================================================
+
+@interface CSQuickActionsView : UIView
+- (UIEdgeInsets)_buttonOutsets;
+@property (nonatomic, strong) UIControl *flashlightButton;
+@property (nonatomic, strong) UIControl *cameraButton;
+@end
+
+@interface CSQuickActionsViewController : NSObject
+@end
+
+@interface NCNotificationListView : UIView
+@end
+
+@interface CSFullscreenNotificationView : UIView
+@end
+
+%group QuickActions
+
+%hook UIWindow
+- (UIEdgeInsets)safeAreaInsets {
+    UIEdgeInsets orig = %orig;
+    if (orig.bottom <= 0.0) {
+        Class qaCls = NSClassFromString(@"CSQuickActionsButton");
+        if (qaCls && ViewContainsClass(self, qaCls, 0)) {
+            orig.bottom = 20;
+        }
+    }
+    return orig;
+}
+%end
+
+%hook CSQuickActionsView
+- (BOOL)wantsQuickActions {
+    return YES;
+}
+
+- (BOOL)_prototypingAllowsButtons {
+    return YES;
+}
+
+- (void)_layoutQuickActionButtons {
+    CGRect const screenBounds = [UIScreen mainScreen].bounds;
+    CGFloat const y = screenBounds.size.height - 90 - [self _buttonOutsets].top;
+    [self flashlightButton].frame = CGRectMake(46, y, 50, 50);
+    [self cameraButton].frame = CGRectMake(screenBounds.size.width - 96, y, 50, 50);
+}
+%end
+
+%hook CSQuickActionsViewController
++ (BOOL)deviceSupportsButtons {
+    return YES;
+}
+- (BOOL)hasCamera { return YES; }
+- (BOOL)hasFlashlight { return YES; }
+%end
+
+%hook NCNotificationListView
+- (void)setFrame:(CGRect)frame {
+    if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){16, 0, 0}]) {
+        frame = CGRectMake(0, -100, frame.size.width, frame.size.height);
+    }
+    %orig(frame);
+}
+%end
+
+%hook CSFullscreenNotificationView
+- (void)setFrame:(CGRect)frame {
+    frame = CGRectMake(0, -50, frame.size.width, frame.size.height);
+    %orig(frame);
+}
+%end
+
+%end
+
+// ============================================================
+// Rounded app switcher
+// ============================================================
+
+%group RoundedSwitcher
+
+%hook SBFluidSwitcherViewController
+- (double)displayCornerRadius {
+    return 14.0;
+}
+%end
+
+%end
+
+// ============================================================
+// Constructor
+// ============================================================
+
+%ctor {
+    @autoreleasepool {
+        loadPreferences();
+
+        CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
+            (CFNotificationCallback)loadPreferences, (CFStringRef)kNotification, NULL,
+            CFNotificationSuspensionBehaviorCoalesce);
+
+        if (!enabled) return;
+
+        %init(Core);
+
+        if (statusBarStyle == 1) %init(StatusBarPad);
+
+        if (dockStyle == 1) {
+            %init(DockiPad);
+            if (!enableRecents) %init(NoRecents);
+            if (hideDockBackground) %init(DockPlatter);
+            if (roundedDockRecents) %init(RoundedRecents);
+        }
+
+        if (enableQuickActions) %init(QuickActions);
+        if (roundedAppSwitcher) %init(RoundedSwitcher);
+
+        if (ccPosition == 0) {
+            %init(CCDisabled);
+        } else {
+            %init(CCHomeGesture);
+            if (ccPosition == 1) %init(CCBottomRight);
+            if (ccPosition == 2) %init(CCBottomLeft);
+        }
+    }
+}

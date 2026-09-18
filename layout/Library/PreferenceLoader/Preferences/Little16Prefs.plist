@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>entry</key>
+	<dict>
+		<key>bundle</key>
+		<string>/Library/PreferenceBundles/Little16Prefs.bundle</string>
+		<key>cell</key>
+		<string>PSLinkCell</string>
+		<key>detail</key>
+		<string>Little16PrefsListController</string>
+		<key>label</key>
+		<string>Little16</string>
+		<key>isController</key>
+		<true/>
+		<key>defaults</key>
+		<string>com.michaelmelita1.little16</string>
+		<key>postNotification</key>
+		<string>com.michaelmelita1.little16/prefsUpdated</string>
+	</dict>
+</dict>
+</plist>

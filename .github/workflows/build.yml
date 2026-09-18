@@ -1,0 +1,21 @@
+name: Build DEB
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/theos/theos:ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make package
+        run: make package FINALPACKAGE=1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debs
+          path: packages/*.deb
