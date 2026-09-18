@@ -46,5 +46,5 @@ jobs:
             - `*-arm64.deb`    = rootless (Dopamine / palera1n rootless)
             - `*-arm64e.deb`   = roothide (Dopamine2-roothide)
           files: packages/*.deb
-          allow_updates: true
+          overwrite_files: true
           fail_on_unmatched_files: false
