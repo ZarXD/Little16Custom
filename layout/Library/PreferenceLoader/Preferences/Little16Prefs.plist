@@ -5,7 +5,7 @@
 	<key>entry</key>
 	<dict>
 		<key>bundle</key>
-		<string>/Library/PreferenceBundles/Little16Prefs.bundle</string>
+		<string>Little16Prefs</string>
 		<key>cell</key>
 		<string>PSLinkCell</string>
 		<key>detail</key>
@@ -14,10 +14,6 @@
 		<string>Little16</string>
 		<key>isController</key>
 		<true/>
-		<key>defaults</key>
-		<string>com.michaelmelita1.little16</string>
-		<key>postNotification</key>
-		<string>com.michaelmelita1.little16/prefsUpdated</string>
 	</dict>
 </dict>
 </plist>
