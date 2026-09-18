@@ -12,9 +12,18 @@ jobs:
 
       - name: Setup Theos
         uses: Randomblock1/theos-action@v1
+        with:
+          # roothide/theos fork provides BOTH the 'rootless' and 'roothide' schemes.
+          theos-src: https://github.com/roothide/theos.git
 
-      - name: Make package
+      - name: Build (rootless)
         run: make package FINALPACKAGE=1
+
+      - name: List rootless packages
+        run: ls -la packages/
+
+      - name: Build (roothide)
+        run: make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

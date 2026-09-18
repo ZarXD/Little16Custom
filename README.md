@@ -25,30 +25,45 @@ All changes require a respring to apply (button included at the bottom of settin
 
 ## Building
 
+The GitHub Actions workflow builds **two variants** automatically on every push:
+
+| Variant | How to make | Result |
+|---|---|---|
+| **Rootless** | `make package FINALPACKAGE=1` | `com.michaelmelita1.little16_1.0.0_iphoneos-arm64.deb` |
+| **Roothide** | `make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide` | `com.michaelmelita1.little16_1.0.0_iphoneos-arm64e.deb` |
+
 ### GitHub Actions (recommended — works from any OS)
 
 1. Push this folder to a GitHub repo
-2. Actions tab → "Build DEB" → "Run workflow"
-3. Download the `.deb` from the Artifacts section
+2. Actions tab → "Build DEB" (runs automatically on push)
+3. Download the `.deb` from the Artifacts section (the zip contains both variants)
 
 ### Local build (Linux / WSL / macOS)
 
 ```bash
-# Install Theos first: https://github.com/theos/theos
+# Install roothide/theos first (supports both schemes):
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
 git clone <your-repo-url>
 cd Little16Custom
-make package FINALPACKAGE=1
+make clean package FINALPACKAGE=1                                   # rootless
+make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide     # roothide
 ```
 
-The `.deb` will be in `./packages/`.
+The `.deb` file(s) will be in `./packages/`.
 
 ## Installing
 
-1. Copy the `.deb` to your device (AirDrop, scp, Sileo local install, etc.)
-2. Open in Sileo/Filza → Install
-3. Respring
+Pick the `.deb` that matches your jailbreak, copy it to your device (AirDrop, scp, Sileo local install, Filza, etc.), open in Sileo/Filza → Install, then respring.
 
-Or use `dpkg -i com.michaelmelita1.little16_1.0.0_iphoneos-arm64.deb` in terminal.
+- **Dopamine (rootless)** / **palera1n (rootless)** → install the `iphoneos-arm64.deb`
+- **Dopamine2-roothide** → install the `iphoneos-arm64e.deb`
+
+Or use dpkg in a terminal on the device:
+
+```bash
+dpkg -i com.michaelmelita1.little16_1.0.0_iphoneos-arm64.deb    # rootless
+dpkg -i com.michaelmelita1.little16_1.0.0_iphoneos-arm64e.deb   # roothide
+```
 
 ## CC Position Notes
 
@@ -64,9 +79,10 @@ Or use `dpkg -i com.michaelmelita1.little16_1.0.0_iphoneos-arm64.deb` in termina
 ## Compatibility
 
 - **Devices**: iPhone 6S, 7, 8, SE 2nd gen
-- **iOS**: 15.0 - 16.x (possibly iOS 17+)
-- **Jailbreak**: Dopamine (rootless), palera1n, XinaA15, etc.
+- **iOS**: 15.0 - 16.x (tested on iOS 16.7.x)
+- **Jailbreak**: Dopamine (rootless), **Dopamine2-roothide**, palera1n, XinaA15, etc.
 - **Package manager**: Sileo, Zebra
+- Settings/preferences live at `/var/mobile/Library/Preferences/com.michaelmelita1.little16.plist` (works on both rootless and roothide)
 
 ## Credits
 
