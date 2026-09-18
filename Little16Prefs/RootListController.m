@@ -67,7 +67,7 @@ static void L16Log(NSString *format, ...) {
         L16Log(@"specifiers entered bundle=%@ exec=%@", [[NSBundle mainBundle] bundleIdentifier], [[[NSBundle mainBundle] executablePath] lastPathComponent]);
     }
     if (!_specifiers) {
-        _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
+        _specifiers = [[self loadSpecifiersFromPlistName:@"Root" target:self] retain];
         L16Log(@"specifiers loaded count=%lu", (unsigned long)[_specifiers count]);
     }
     return _specifiers;
