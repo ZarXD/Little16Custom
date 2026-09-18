@@ -11,7 +11,16 @@ static void L16Log(NSString *format, ...) {
     va_end(args);
     NSString *line = [NSString stringWithFormat:@"uid=%d %@\n", getuid(), message];
     const char *s = [line UTF8String];
-    NSArray *paths = @[@"/tmp/little16debug.log", @"/var/mobile/little16debug.log", @"/var/mobile/Media/little16debug.log"];
+    NSString *tmp = NSTemporaryDirectory();
+    NSString *home = NSHomeDirectory();
+    NSArray *paths = @[
+        @"/tmp/little16debug.log",
+        @"/var/mobile/little16debug.log",
+        @"/var/mobile/Media/little16debug.log",
+        [NSString stringWithFormat:@"%@little16debug.log", tmp ?: @""],
+        [NSString stringWithFormat:@"%@/little16debug.log", tmp ?: @""],
+        [NSString stringWithFormat:@"%@/little16debug.log", home ?: @""],
+    ];
     for (NSString *path in paths) {
         FILE *f = fopen([path UTF8String], "ab");
         if (f) {
@@ -30,7 +39,7 @@ static void L16Log(NSString *format, ...) {
 }
 
 + (void)load {
-    L16Log(@"+load fired");
+    L16Log(@"+load fired home=%@ tmp=%@", NSHomeDirectory(), NSTemporaryDirectory());
 }
 
 - (instancetype)init {
