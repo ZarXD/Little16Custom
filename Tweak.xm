@@ -437,6 +437,8 @@ static void L16DBG(NSString *fmt, ...) {
     NSLog(@"L16Tweak: %@", msg);
 }
 
+%group Diagnostics
+
 %hookf(void *, dlopen, const char *path, int mode) {
     void *h = %orig(path, mode);
     if (path != NULL && (strstr(path, "Little16") || strstr(path, "PreferenceBundles"))) {
@@ -445,10 +447,13 @@ static void L16DBG(NSString *fmt, ...) {
     return h;
 }
 
+%end
+
 %ctor {
     @autoreleasepool {
         L16DBG(@"ctor in %@ pid=%d", [[NSBundle mainBundle] bundleIdentifier], getpid());
         loadPreferences();
+        %init(Diagnostics);
 
         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL,
             (CFNotificationCallback)loadPreferences, (CFStringRef)kNotification, NULL,
