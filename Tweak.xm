@@ -443,7 +443,7 @@ static void RoundIconsInView(UIView *view) {
             %init(CCDisabled);
         } else {
             %init(CCHomeGesture);
-            if (ccPosition == 1) %init(CCBottomRight);
+            if (ccPosition == 1 || ccPosition == 3) %init(CCBottomRight);
             if (ccPosition == 2) %init(CCBottomLeft);
         }
     }
