@@ -481,6 +481,11 @@ static void L16DBG(NSString *fmt, ...) {
 %ctor {
     @autoreleasepool {
         L16DBG(@"ctor in %@ pid=%d", [[NSBundle mainBundle] bundleIdentifier], getpid());
+        L16DBG(@"providers: S58=%d S61=%d PAD=%d RPAD=%d", 
+            NSClassFromString(@"_UIStatusBarVisualProvider_Split58") != nil,
+            NSClassFromString(@"_UIStatusBarVisualProvider_Split61") != nil,
+            NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
+            NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil);
         loadPreferences();
         %init(Diagnostics);
 
