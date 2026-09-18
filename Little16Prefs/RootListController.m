@@ -1,21 +1,23 @@
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
 #include <spawn.h>
+#include <stdio.h>
+#include <unistd.h>
 
 static void L16Log(NSString *format, ...) {
     va_list args;
     va_start(args, format);
     NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
     va_end(args);
-    NSData *data = [[message stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding];
-    NSString *path = @"/tmp/little16debug.log";
-    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
-        [data writeToFile:path atomically:YES];
-    } else {
-        NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:path];
-        [fh seekToEndOfFile];
-        [fh writeData:data];
-        [fh closeFile];
+    NSString *line = [NSString stringWithFormat:@"uid=%d %@\n", getuid(), message];
+    const char *s = [line UTF8String];
+    NSArray *paths = @[@"/tmp/little16debug.log", @"/var/mobile/little16debug.log", @"/var/mobile/Media/little16debug.log"];
+    for (NSString *path in paths) {
+        FILE *f = fopen([path UTF8String], "ab");
+        if (f) {
+            fputs(s, f);
+            fclose(f);
+        }
     }
     NSLog(@"Little16Prefs: %@", message);
 }
@@ -25,6 +27,10 @@ static void L16Log(NSString *format, ...) {
 
 @implementation Little16PrefsListController {
     BOOL _logged;
+}
+
++ (void)load {
+    L16Log(@"+load fired");
 }
 
 - (instancetype)init {
@@ -47,14 +53,13 @@ static void L16Log(NSString *format, ...) {
 }
 
 - (NSArray *)specifiers {
-    L16Log(@"specifiers entered");
+    if (!_logged) {
+        _logged = YES;
+        L16Log(@"specifiers entered bundle=%@ exec=%@", [[NSBundle mainBundle] bundleIdentifier], [[[NSBundle mainBundle] executablePath] lastPathComponent]);
+    }
     if (!_specifiers) {
         _specifiers = [self loadSpecifiersFromPlistName:@"Root" target:self];
         L16Log(@"specifiers loaded count=%lu", (unsigned long)[_specifiers count]);
-    }
-    if (!_logged) {
-        _logged = YES;
-        L16Log(@"bundle=%@ exec=%@ cwd=%@", [[NSBundle mainBundle] bundleIdentifier], [[[NSBundle mainBundle] executablePath] lastPathComponent], [[NSFileManager defaultManager] currentDirectoryPath]);
     }
     return _specifiers;
 }
