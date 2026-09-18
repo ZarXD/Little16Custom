@@ -48,11 +48,15 @@
 			<array>
 				<string>Legacy</string>
 				<string>iPad</string>
+				<string>Modern</string>
+				<string>Pro</string>
 			</array>
 			<key>validValues</key>
 			<array>
 				<integer>0</integer>
 				<integer>1</integer>
+				<integer>2</integer>
+				<integer>3</integer>
 			</array>
 			<key>PostNotification</key>
 			<string>com.michaelmelita1.little16/prefsUpdated</string>
@@ -201,31 +205,43 @@
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSSwitchCell</string>
+			<string>PSSliderCell</string>
 			<key>default</key>
-			<false/>
+			<real>14</real>
 			<key>defaults</key>
 			<string>com.michaelmelita1.little16</string>
 			<key>key</key>
 			<string>roundedAppSwitcher</string>
 			<key>label</key>
 			<string>Rounded App Switcher</string>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>30</real>
 			<key>PostNotification</key>
 			<string>com.michaelmelita1.little16/prefsUpdated</string>
+			<key>showValue</key>
+			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>
-			<string>PSSwitchCell</string>
+			<string>PSSliderCell</string>
 			<key>default</key>
-			<false/>
+			<real>14</real>
 			<key>defaults</key>
 			<string>com.michaelmelita1.little16</string>
 			<key>key</key>
 			<string>roundedDockRecents</string>
 			<key>label</key>
 			<string>Rounded Recent Apps</string>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>30</real>
 			<key>PostNotification</key>
 			<string>com.michaelmelita1.little16/prefsUpdated</string>
+			<key>showValue</key>
+			<true/>
 		</dict>
 		<dict>
 			<key>cell</key>

@@ -11,15 +11,15 @@ static NSString *const kPrefsID = @"com.michaelmelita1.little16";
 static NSString *const kNotification = @"com.michaelmelita1.little16/prefsUpdated";
 
 static BOOL enabled = YES;
-static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad
+static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = Modern (13-15), 3 = Pro (14)
 static NSInteger dockStyle = 1;           // 0 = Legacy, 1 = iPad (floating)
 static NSInteger ccPosition = 3;          // 3 = Top Right (status bar), 1 = Bottom Right, 2 = Bottom Left, 0 = Disabled
 static BOOL hideDockBackground = NO;
 static BOOL enableRecents = YES;
 static BOOL removeAppLibrary = NO;
 static BOOL enableQuickActions = YES;
-static BOOL roundedAppSwitcher = NO;
-static BOOL roundedDockRecents = NO;
+static CGFloat roundedAppSwitcherRadius = 0;  // 0 = off
+static CGFloat roundedDockRecentsRadius = 0;  // 0 = off
 static BOOL showHomeBar = NO;
 
 #define MAX_DOCK_ICONS 4
@@ -41,8 +41,12 @@ static void loadPreferences(void) {
         v = PrefValue(@"enableRecents"); if (v) enableRecents = [v boolValue];
         v = PrefValue(@"removeAppLibrary"); if (v) removeAppLibrary = [v boolValue];
         v = PrefValue(@"enableQuickActions"); if (v) enableQuickActions = [v boolValue];
-        v = PrefValue(@"roundedAppSwitcher"); if (v) roundedAppSwitcher = [v boolValue];
-        v = PrefValue(@"roundedDockRecents"); if (v) roundedDockRecents = [v boolValue];
+        v = PrefValue(@"roundedAppSwitcher");
+        if ([v isKindOfClass:NSNumber.class]) roundedAppSwitcherRadius = [v floatValue];
+        else if (v) roundedAppSwitcherRadius = [v boolValue] ? 14.0 : 0.0;
+        v = PrefValue(@"roundedDockRecents");
+        if ([v isKindOfClass:NSNumber.class]) roundedDockRecentsRadius = [v floatValue];
+        else if (v) roundedDockRecentsRadius = [v boolValue] ? 14.0 : 0.0;
         v = PrefValue(@"showHomeBar"); if (v) showHomeBar = [v boolValue];
     }
 }
@@ -60,15 +64,16 @@ static BOOL ViewContainsClass(UIView *view, Class targetClass, int depth) {
     return NO;
 }
 
-static void RoundIconsInView(UIView *view) {
+static void RoundIconsInView(UIView *view, CGFloat radius) {
+    if (radius <= 0.5) return;
     for (UIView *sub in view.subviews) {
         if ([sub isKindOfClass:NSClassFromString(@"SBIconView")] ||
             [sub isKindOfClass:NSClassFromString(@"SBIconImageView")]) {
-            sub.layer.cornerRadius = 14.0;
+            sub.layer.cornerRadius = radius;
             sub.layer.masksToBounds = YES;
             sub.clipsToBounds = YES;
         }
-        RoundIconsInView(sub);
+        RoundIconsInView(sub, radius);
     }
 }
 
@@ -105,6 +110,33 @@ static void RoundIconsInView(UIView *view) {
 %hook _UIStatusBarVisualProvider_iOS
 + (Class)class {
     return %c(_UIStatusBarVisualProvider_Pad_ForcedCellular);
+}
+%end
+
+%end
+
+// Modern notched style (iPhone X / 11 / 13-15 look, no resolution change).
+// Same provider-swap technique used by LittleXS / Poseidon / HalFiPad.
+%group StatusBarModern
+
+%hook _UIStatusBarVisualProvider_iOS
++ (Class)class {
+    Class provider = NSClassFromString(@"_UIStatusBarVisualProvider_Split58");
+    if (provider) return provider;
+    return %orig;
+}
+%end
+
+%end
+
+// iPhone 14 Pro style.
+%group StatusBarPro
+
+%hook _UIStatusBarVisualProvider_iOS
++ (Class)class {
+    Class provider = NSClassFromString(@"_UIStatusBarVisualProvider_Split61");
+    if (provider) return provider;
+    return %orig;
 }
 %end
 
@@ -270,7 +302,7 @@ static void RoundIconsInView(UIView *view) {
 %hook SBFloatingDockSuggestionsView
 - (void)layoutSubviews {
     %orig;
-    RoundIconsInView(self);
+    RoundIconsInView(self, roundedDockRecentsRadius);
 }
 %end
 
@@ -405,7 +437,7 @@ static void RoundIconsInView(UIView *view) {
 
 %hook SBFluidSwitcherViewController
 - (double)displayCornerRadius {
-    return 14.0;
+    return roundedAppSwitcherRadius;
 }
 %end
 
@@ -461,16 +493,18 @@ static void L16DBG(NSString *fmt, ...) {
         %init(Core);
 
         if (statusBarStyle == 1) %init(StatusBarPad);
+        else if (statusBarStyle == 2) %init(StatusBarModern);
+        else if (statusBarStyle == 3) %init(StatusBarPro);
 
         if (dockStyle == 1) {
             %init(DockiPad);
             if (!enableRecents) %init(NoRecents);
             if (hideDockBackground) %init(DockPlatter);
-            if (roundedDockRecents) %init(RoundedRecents);
+            if (roundedDockRecentsRadius > 0.5) %init(RoundedRecents);
         }
 
         if (enableQuickActions) %init(QuickActions);
-        if (roundedAppSwitcher) %init(RoundedSwitcher);
+        if (roundedAppSwitcherRadius > 0.5) %init(RoundedSwitcher);
 
         if (ccPosition == 0) {
             %init(CCDisabled);
