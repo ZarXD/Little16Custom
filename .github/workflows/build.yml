@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,3 +34,17 @@ jobs:
           name: debs
           path: packages/*.deb
           if-no-files-found: error
+
+      - name: Publish GitHub Release (update on every push)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: Little16 Custom v1.0.0
+          body: |
+            Little16 Custom - gestures + control center for iPhone 8 / home-button devices.
+
+            - `*-arm64.deb`    = rootless (Dopamine / palera1n rootless)
+            - `*-arm64e.deb`   = roothide (Dopamine2-roothide)
+          files: packages/*.deb
+          allow_updates: true
+          fail_on_unmatched_files: false
