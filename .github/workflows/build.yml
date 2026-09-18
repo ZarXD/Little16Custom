@@ -19,8 +19,11 @@ jobs:
           # roothide/theos fork provides BOTH the 'rootless' and 'roothide' schemes.
           theos-src: https://github.com/roothide/theos.git
 
-      - name: Install ldid (required, otherwise theos ships .unsigned binaries)
-        run: sudo apt-get update && sudo apt-get install -y ldid
+      - name: Install ldid (required, otherwise theos ships mis-signed binaries)
+        run: |
+          curl -fL -o /usr/local/bin/ldid https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64
+          chmod +x /usr/local/bin/ldid
+          ldid -h 2>&1 | head -2
 
       - name: Build (rootless)
         run: make package FINALPACKAGE=1
