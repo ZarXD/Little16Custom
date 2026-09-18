@@ -25,15 +25,11 @@ static BOOL showHomeBar = NO;
 #define MAX_DOCK_ICONS 4
 #define MAX_RECENTS 3
 
-static NSString *PrefsFilePath(void) {
-    NSString *normal = @"/var/mobile/Library/Preferences/com.michaelmelita1.little16.plist";
-    NSString *jb = @"/var/jb/var/mobile/Library/Preferences/com.michaelmelita1.little16.plist";
-    return [[NSFileManager defaultManager] fileExistsAtPath:normal] ? normal : jb;
-}
-
 static void loadPreferences(void) {
     @autoreleasepool {
-        NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:PrefsFilePath()];
+        CFPreferencesAppSynchronize((__bridge CFStringRef)kPrefsID);
+        NSDictionary *dict = (__bridge_transfer NSDictionary *)CFPreferencesCopyAppMultiple(
+            NULL, (__bridge CFStringRef)kPrefsID);
         if (!dict) return;
 
         if (dict[@"enabled"]) enabled = [dict[@"enabled"] boolValue];

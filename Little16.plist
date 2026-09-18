@@ -6,9 +6,8 @@
 	<dict>
 		<key>Bundles</key>
 		<array>
-			<string>com.apple.springboard</string>
-			<string>com.apple.Preferences</string>
-		</array>
+<string>com.apple.springboard</string>
+	</array>
 	</dict>
 </dict>
 </plist>
