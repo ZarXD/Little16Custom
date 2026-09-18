@@ -25,24 +25,25 @@ static BOOL showHomeBar = NO;
 #define MAX_DOCK_ICONS 4
 #define MAX_RECENTS 3
 
+static id PrefValue(NSString *key) {
+    return (__bridge_transfer id)CFPreferencesCopyAppValue((__bridge CFStringRef)key, (__bridge CFStringRef)kPrefsID);
+}
+
 static void loadPreferences(void) {
     @autoreleasepool {
         CFPreferencesAppSynchronize((__bridge CFStringRef)kPrefsID);
-        NSDictionary *dict = (__bridge_transfer NSDictionary *)CFPreferencesCopyAppMultiple(
-            NULL, (__bridge CFStringRef)kPrefsID);
-        if (!dict) return;
 
-        if (dict[@"enabled"]) enabled = [dict[@"enabled"] boolValue];
-        if (dict[@"statusBarStyle"]) statusBarStyle = [dict[@"statusBarStyle"] integerValue];
-        if (dict[@"dockStyle"]) dockStyle = [dict[@"dockStyle"] integerValue];
-        if (dict[@"ccPosition"]) ccPosition = [dict[@"ccPosition"] integerValue];
-        if (dict[@"hideDockBackground"]) hideDockBackground = [dict[@"hideDockBackground"] boolValue];
-        if (dict[@"enableRecents"]) enableRecents = [dict[@"enableRecents"] boolValue];
-        if (dict[@"removeAppLibrary"]) removeAppLibrary = [dict[@"removeAppLibrary"] boolValue];
-        if (dict[@"enableQuickActions"]) enableQuickActions = [dict[@"enableQuickActions"] boolValue];
-        if (dict[@"roundedAppSwitcher"]) roundedAppSwitcher = [dict[@"roundedAppSwitcher"] boolValue];
-        if (dict[@"roundedDockRecents"]) roundedDockRecents = [dict[@"roundedDockRecents"] boolValue];
-        if (dict[@"showHomeBar"]) showHomeBar = [dict[@"showHomeBar"] boolValue];
+        id v = PrefValue(@"enabled"); if (v) enabled = [v boolValue];
+        v = PrefValue(@"statusBarStyle"); if (v) statusBarStyle = [v integerValue];
+        v = PrefValue(@"dockStyle"); if (v) dockStyle = [v integerValue];
+        v = PrefValue(@"ccPosition"); if (v) ccPosition = [v integerValue];
+        v = PrefValue(@"hideDockBackground"); if (v) hideDockBackground = [v boolValue];
+        v = PrefValue(@"enableRecents"); if (v) enableRecents = [v boolValue];
+        v = PrefValue(@"removeAppLibrary"); if (v) removeAppLibrary = [v boolValue];
+        v = PrefValue(@"enableQuickActions"); if (v) enableQuickActions = [v boolValue];
+        v = PrefValue(@"roundedAppSwitcher"); if (v) roundedAppSwitcher = [v boolValue];
+        v = PrefValue(@"roundedDockRecents"); if (v) roundedDockRecents = [v boolValue];
+        v = PrefValue(@"showHomeBar"); if (v) showHomeBar = [v boolValue];
     }
 }
 
