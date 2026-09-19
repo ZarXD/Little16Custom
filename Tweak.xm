@@ -138,6 +138,9 @@ static void L16DBG(NSString *fmt, ...);
 @interface _UIStatusBar : UIView
 @end
 
+@interface _UIStatusBarForegroundView : UIView
+@end
+
 static UIView *L16FindClassInView(UIView *root, NSString *klass, int depth) {
     if (!root || depth > 8) return nil;
     if ([root isKindOfClass:NSClassFromString(klass)]) return root;
@@ -165,9 +168,32 @@ static void L16DumpViewTree(UIView *root, int depth) {
     for (UIView *sub in root.subviews) L16DumpViewTree(sub, depth + 1);
 }
 
+static void L16LayoutSplit(UIView *root) {
+    if (root.bounds.size.width <= 0) return;
+
+    // NOTE: wifi view isn't created until a network is connected; the
+    // hook re-runs on every layout so it catches items as they appear.
+    UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
+    UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
+    UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
+
+    CGFloat xEdge = root.bounds.size.width - 6.0;
+    CGFloat gap = 4.0;
+    L16PlaceXRight(&xEdge, batt, root, gap);
+    L16PlaceXRight(&xEdge, wifi, root, gap);
+    L16PlaceXRight(&xEdge, cell, root, gap);
+}
+
 %group StatusBarModern
 
 %hook _UIStatusBar
+- (void)layoutSubviews {
+    %orig;
+    L16LayoutSplit(self);
+}
+%end
+
+%hook _UIStatusBarForegroundView
 - (void)layoutSubviews {
     %orig;
 
@@ -179,18 +205,7 @@ static void L16DumpViewTree(UIView *root, int depth) {
         L16DBG(@"--- end tree ---");
     }
 
-    if (self.bounds.size.width <= 0) return;
-
-    UIView *batt = L16FindClassInView(self, @"_UIStatusBarBatteryView", 0);
-    UIView *wifi = L16FindClassInView(self, @"_UIStatusBarWifiSignalView", 0);
-    UIView *cell = L16FindClassInView(self, @"_UIStatusBarCellularSignalView", 0);
-    if (!batt && !wifi && !cell) return;
-
-    CGFloat xEdge = self.bounds.size.width - 6.0;
-    CGFloat gap = 4.0;
-    L16PlaceXRight(&xEdge, batt, self, gap);
-    L16PlaceXRight(&xEdge, wifi, self, gap);
-    L16PlaceXRight(&xEdge, cell, self, gap);
+    L16LayoutSplit(self);
 }
 %end
 
