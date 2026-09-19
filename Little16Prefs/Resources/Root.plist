@@ -48,6 +48,7 @@
 			<array>
 				<string>Legacy</string>
 				<string>iPad</string>
+				<string>Modern</string>
 				<string>Rounded iPad</string>
 			</array>
 			<key>validValues</key>
@@ -55,6 +56,7 @@
 				<integer>0</integer>
 				<integer>1</integer>
 				<integer>2</integer>
+				<integer>3</integer>
 			</array>
 			<key>PostNotification</key>
 			<string>com.michaelmelita1.little16/prefsUpdated</string>

@@ -11,7 +11,7 @@ static NSString *const kPrefsID = @"com.michaelmelita1.little16";
 static NSString *const kNotification = @"com.michaelmelita1.little16/prefsUpdated";
 
 static BOOL enabled = YES;
-static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = Rounded iPad
+static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = Modern (centered clock), 3 = Rounded iPad
 static NSInteger dockStyle = 1;           // 0 = Legacy, 1 = iPad (floating)
 static NSInteger ccPosition = 3;          // 3 = Top Right (status bar), 1 = Bottom Right, 2 = Bottom Left, 0 = Disabled
 static BOOL hideDockBackground = NO;
@@ -121,6 +121,74 @@ static void RoundIconsInView(UIView *view, CGFloat radius) {
 %hook _UIStatusBarVisualProvider_iOS
 + (Class)class {
     return %c(_UIStatusBarVisualProvider_RoundedPad_ForcedCellular);
+}
+%end
+
+%end
+
+// ============================================================
+// Modern style: center the clock like notched iPhones, WITHOUT any
+// resolution change. iOS16 removed the split providers, so we do
+// view-layout instead of provider swap (no rdar red bar).
+// ============================================================
+
+@class _UIStatusBar;
+
+static BOOL L16IsDescendantOf(UIView *view, NSString *klass) {
+    id cur = view;
+    while (cur) {
+        if ([cur isKindOfClass:NSClassFromString(klass)]) return YES;
+        cur = [cur superview];
+    }
+    return NO;
+}
+
+static UIView *L16FindClockView(UIView *root, int depth) {
+    if (!root || depth > 8) return nil;
+
+    for (UIView *sub in root.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")] &&
+            L16IsDescendantOf(sub, @"_UIStatusBarTimeItem")) {
+            return sub;
+        }
+    }
+    for (UIView *sub in root.subviews) {
+        UIView *found = L16FindClockView(sub, depth + 1);
+        if (found) return found;
+    }
+    return nil;
+}
+
+static void L16DumpViewTree(UIView *root, int depth) {
+    if (!root || depth > 5) return;
+    NSMutableString *pad = [NSMutableString string];
+    for (int i = 0; i < depth; i++) [pad appendString:@"  "];
+    L16DBG(@"%@%@", pad, NSStringFromClass([root class]));
+    for (UIView *sub in root.subviews) L16DumpViewTree(sub, depth + 1);
+}
+
+%group StatusBarModern
+
+%hook _UIStatusBar
+- (void)layoutSubviews {
+    %orig;
+
+    static BOOL dumped = NO;
+    if (!dumped) {
+        dumped = YES;
+        L16DBG(@"--- status bar tree ---");
+        L16DumpViewTree(self, 0);
+        L16DBG(@"--- end tree ---");
+    }
+
+    if (self.bounds.size.width <= 0) return;
+    UIView *clock = L16FindClockView(self, 0);
+    if (!clock || !clock.superview) return;
+
+    CGRect fr = [clock.superview convertRect:clock.frame toView:self];
+    fr.origin.x = (self.bounds.size.width - fr.size.width) / 2.0;
+    clock.frame = [self convertRect:fr toView:clock.superview];
+    clock.hidden = NO;
 }
 %end
 
@@ -482,7 +550,8 @@ static void L16DBG(NSString *fmt, ...) {
         %init(Core);
 
         if (statusBarStyle == 1) %init(StatusBarPad);
-        else if (statusBarStyle == 2) %init(StatusBarRoundedPad);
+        else if (statusBarStyle == 2) %init(StatusBarModern);
+        else if (statusBarStyle == 3) %init(StatusBarRoundedPad);
 
         if (dockStyle == 1) {
             %init(DockiPad);
