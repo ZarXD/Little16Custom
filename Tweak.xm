@@ -155,13 +155,6 @@ static UIView *L16FindClassInView(UIView *root, NSString *klass, int depth) {
     return nil;
 }
 
-static void L16DumpViewTree(UIView *root, int depth) {
-    if (!root || depth > 5) return;
-    NSMutableString *pad = [NSMutableString string];
-    for (int i = 0; i < depth; i++) [pad appendString:@"  "];
-    L16DBG(@"%@%@", pad, NSStringFromClass([root class]));
-    for (UIView *sub in root.subviews) L16DumpViewTree(sub, depth + 1);
-}
 
 static int L16SplitLogCount = 0;
 static void L16LogItemFrames(UIView *root, NSString *tag) {
