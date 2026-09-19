@@ -142,7 +142,7 @@ static void L16DBG(NSString *fmt, ...);
 
 static NSString *const kUIKitDomain = @"com.apple.UIKit";
 static NSString *const kProviderKey = @"UIStatusBarVisualProviderClassName";
-static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1242";
+static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1080";
 
 static void L16EnsureSplitProvider(void) {
     CFStringRef current = (CFStringRef)CFPreferencesCopyAppValue(
@@ -536,20 +536,21 @@ static void L16DBG(NSString *fmt, ...) {
             NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Split1170") != nil);
-        Class splitCls = NSClassFromString(kSplitProvider);
-        if (splitCls) {
-            L16DBG(@"Class %@ superclass %@", NSStringFromClass(splitCls), NSStringFromClass(class_getSuperclass(splitCls)));
-            Class metaCls = object_getClass((id)splitCls);
+        Class cls = NSClassFromString(kSplitProvider);
+        while (cls && cls != [NSObject class]) {
+            L16DBG(@"=== Class %@ (super %@) ===", NSStringFromClass(cls), NSStringFromClass(class_getSuperclass(cls)));
+            Class metaCls = object_getClass((id)cls);
             unsigned int mcount = 0;
             Method *methods = class_copyMethodList(metaCls, &mcount);
             for (unsigned int i = 0; i < mcount; i++) {
                 SEL sel = method_getName(methods[i]);
-                L16DBG(@"class method: +[%@ %s]", NSStringFromClass(splitCls), sel_getName(sel));
+                const char *name = sel_getName(sel);
+                L16DBG(@"class method: +[%@ %s]", NSStringFromClass(cls), name);
             }
             free(methods);
 
             unsigned int icount = 0;
-            Method *imethods = class_copyMethodList(splitCls, &icount);
+            Method *imethods = class_copyMethodList(cls, &icount);
             for (unsigned int i = 0; i < icount; i++) {
                 SEL sel = method_getName(imethods[i]);
                 const char *name = sel_getName(sel);
@@ -557,11 +558,13 @@ static void L16DBG(NSString *fmt, ...) {
                     strstr(name, "cutout") || strstr(name, "layout") || strstr(name, "item") || 
                     strstr(name, "edge") || strstr(name, "width") || strstr(name, "height") || 
                     strstr(name, "notch") || strstr(name, "lead") || strstr(name, "trail") || 
-                    strstr(name, "time") || strstr(name, "clock") || strstr(name, "pill")) {
-                    L16DBG(@"instance method: -[%@ %s]", NSStringFromClass(splitCls), name);
+                    strstr(name, "time") || strstr(name, "clock") || strstr(name, "pill") ||
+                    strstr(name, "inset") || strstr(name, "region")) {
+                    L16DBG(@"instance method: -[%@ %s]", NSStringFromClass(cls), name);
                 }
             }
             free(imethods);
+            cls = class_getSuperclass(cls);
         }
         loadPreferences();
         %init(Diagnostics);
