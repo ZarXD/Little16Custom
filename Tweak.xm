@@ -242,24 +242,35 @@ static void L16RemoveSplitProvider(void) {
 
 %group StatusBarSplitFix
 
-%hook _UIStatusBarVisualProvider_Split1170
-
-+ (double)nativeDisplayWidth {
-    return 414.0; // Proper width for iPhone 8 Plus, fixes overlap
+%hook _UIStatusBarStringView
+- (void)setText:(NSString *)text {
+    %orig(text);
+    if ([text containsString:@":"] && text.length >= 3 && text.length <= 10) {
+        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.0];
+    }
 }
-
-- (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:15.0];
-}
-
 %end
 
-%hook CSCombinedListViewController
-- (UIEdgeInsets)_listViewDefaultContentInsets {
-    UIEdgeInsets insets = %orig;
-    insets.bottom += 60.0; // Push lockscreen notifications up to avoid Quick Actions
-    return insets;
+%group HideSBCC
+
+%hook CCUIStatusBarStyleSnapshot
+-(BOOL)isHidden {
+    return YES;
 }
+%end
+
+%hook CCUIModularControlCenterOverlayViewController
+- (void)setOverlayStatusBarHidden:(BOOL)arg1 {
+    %orig(YES);
+}
+%end
+
+%hook CCUIOverlayStatusBarPresentationProvider
+- (void)_addHeaderContentTransformAnimationToBatch:(id)arg1 transitionState:(id)arg2 {
+    %orig(nil, arg2);
+}
+%end
+
 %end
 
 %end
@@ -542,7 +553,8 @@ static void L16RemoveSplitProvider(void) {
 
 - (void)_layoutQuickActionButtons {
     CGRect const screenBounds = [UIScreen mainScreen].bounds;
-    CGFloat const y = screenBounds.size.height - 90 - [self _buttonOutsets].top;
+    // Push buttons lower so they don't overlap notifications (changed 90 to 50)
+    CGFloat const y = screenBounds.size.height - 50 - [self _buttonOutsets].top;
     [self flashlightButton].frame = CGRectMake(46, y, 50, 50);
     [self cameraButton].frame = CGRectMake(screenBounds.size.width - 96, y, 50, 50);
 }
@@ -663,7 +675,8 @@ static void L16DBG(NSString *fmt, ...) {
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
             %init(StatusBarSplitFix, 
-                  _UIStatusBarVisualProvider_Split1170 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1170"));
+                  _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
+            %init(HideSBCC); // Fix the Control Center status bar glitch
             %init(BannerFix,
                 SBBannerWindow = NSClassFromString(@"SBBannerWindow"));
         } else if (statusBarStyle == 3) {
