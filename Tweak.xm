@@ -142,7 +142,7 @@ static void L16DBG(NSString *fmt, ...);
 
 static NSString *const kUIKitDomain = @"com.apple.UIKit";
 static NSString *const kProviderKey = @"UIStatusBarVisualProviderClassName";
-static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1080";
+static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1242";
 
 static void L16EnsureSplitProvider(void) {
     CFStringRef current = (CFStringRef)CFPreferencesCopyAppValue(
@@ -192,27 +192,30 @@ static void L16RemoveSplitProvider(void) {
 }
 
 // ============================================================
-// iPhone X split status bar insets adjustment:
-// By default, FixedSplit assumes curved OLED corners and notch,
-// causing leading (clock/carrier) and trailing (battery) items
-// to be pushed too far outward (~25pt off screen edges).
-// We inset leading and trailing by +25pt so everything is
-// fully visible and nicely padded on iPhone 8 Plus screen.
+// iPhone X split status bar layout fix for iPhone 8 Plus:
+// 1. Insets: FixedSplit calculates negative offsets (-31pt)
+//    on non-curved screens. We add +40pt to bring clock & battery
+//    into perfect ~14-16pt visible margins from screen edges.
+// 2. Notch: FixedSplit reserves a ~209pt phantom camera notch in
+//    the middle. Shrinking it to 80pt gives the trailing ear
+//    an extra 65pt of width so cellular, wifi, and battery sit
+//    side-by-side with ZERO overlapping.
+// 3. Font: _UIStatusBarStringView is hooked to ensure the clock
+//    always renders in crisp 14.5pt semibold monospaced font.
 // ============================================================
 
 @interface _UIStatusBarVisualProvider_FixedSplit : NSObject
 - (NSDirectionalEdgeInsets)leadingEdgeInsets;
 - (NSDirectionalEdgeInsets)trailingEdgeInsets;
 - (CGSize)notchSize;
-- (UIFont *)clockFont;
-- (CGFloat)itemSpacing;
 + (CGSize)notchSize;
-+ (double)baseFontSize;
 @end
 
-@interface _UIStatusBarVisualProvider_Split1080 : _UIStatusBarVisualProvider_FixedSplit
+@interface _UIStatusBarVisualProvider_Split1242 : _UIStatusBarVisualProvider_FixedSplit
 + (CGSize)notchSize;
-- (CGFloat)itemSpacing;
+@end
+
+@interface _UIStatusBarStringView : UILabel
 @end
 
 %group StatusBarSplitFix
@@ -222,7 +225,7 @@ static void L16RemoveSplitProvider(void) {
 - (NSDirectionalEdgeInsets)leadingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
     CGFloat oldL = insets.leading;
-    insets.leading += 48.0;
+    insets.leading += 40.0;
     L16DBG(@"leadingEdgeInsets: orig.leading=%.1f -> new.leading=%.1f (top=%.1f)", oldL, insets.leading, insets.top);
     return insets;
 }
@@ -230,7 +233,7 @@ static void L16RemoveSplitProvider(void) {
 - (NSDirectionalEdgeInsets)trailingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
     CGFloat oldT = insets.trailing;
-    insets.trailing += 48.0;
+    insets.trailing += 40.0;
     L16DBG(@"trailingEdgeInsets: orig.trailing=%.1f -> new.trailing=%.1f (top=%.1f)", oldT, insets.trailing, insets.top);
     return insets;
 }
@@ -238,42 +241,54 @@ static void L16RemoveSplitProvider(void) {
 - (CGSize)notchSize {
     CGSize sz = %orig;
     L16DBG(@"FixedSplit -notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
-    sz.width = 60.0;
+    sz.width = 80.0;
     return sz;
 }
 
 + (CGSize)notchSize {
     CGSize sz = %orig;
     L16DBG(@"FixedSplit +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
-    sz.width = 60.0;
+    sz.width = 80.0;
     return sz;
-}
-
-- (UIFont *)clockFont {
-    return [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
-}
-
-- (CGFloat)itemSpacing {
-    return 6.0;
-}
-
-+ (double)baseFontSize {
-    return 14.0;
 }
 
 %end
 
-%hook _UIStatusBarVisualProvider_Split1080
+%hook _UIStatusBarVisualProvider_Split1242
 
 + (CGSize)notchSize {
     CGSize sz = %orig;
-    L16DBG(@"Split1080 +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
-    sz.width = 60.0;
+    L16DBG(@"Split1242 +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
+    sz.width = 80.0;
     return sz;
 }
 
-- (CGFloat)itemSpacing {
-    return 6.0;
+%end
+
+%hook _UIStatusBarStringView
+
+- (void)didMoveToWindow {
+    %orig;
+    if (self.text.length >= 4 && self.text.length <= 8) {
+        if ([self.text containsString:@":"] || [self.text containsString:@"."]) {
+            unichar first = [self.text characterAtIndex:0];
+            if (first >= '0' && first <= '9') {
+                self.font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
+            }
+        }
+    }
+}
+
+- (void)setText:(NSString *)text {
+    %orig(text);
+    if (text.length >= 4 && text.length <= 8) {
+        if ([text containsString:@":"] || [text containsString:@"."]) {
+            unichar first = [text characterAtIndex:0];
+            if (first >= '0' && first <= '9') {
+                self.font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
+            }
+        }
+    }
 }
 
 %end
@@ -673,7 +688,8 @@ static void L16DBG(NSString *fmt, ...) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
             %init(StatusBarSplitFix,
                 _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
-                _UIStatusBarVisualProvider_Split1080 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1080"));
+                _UIStatusBarVisualProvider_Split1242 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1242"),
+                _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
