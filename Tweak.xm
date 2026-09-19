@@ -231,7 +231,7 @@ static void L16RemoveSplitProvider(void) {
 %hook _UIStatusBarVisualProvider_Split
 
 - (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:15.0];
+    return [UIFont boldSystemFontOfSize:15.5];
 }
 
 - (CGFloat)itemSpacing {
@@ -259,9 +259,9 @@ static void L16RemoveSplitProvider(void) {
 
 - (NSDirectionalEdgeInsets)trailingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
-    insets.trailing = -39.0;
-    insets.leading = 0.0;
-    L16DBG(@"trailingEdgeInsets: new.trail=%.1f lead=%.1f (top=%.1f)", insets.trailing, insets.leading, insets.top);
+    CGFloat oldT = insets.trailing;
+    insets.trailing += 20.0; // Brings battery ~20pt inward from right bezel, leaves leading at notch boundary
+    L16DBG(@"trailingEdgeInsets: orig.trail=%.1f -> new.trail=%.1f (top=%.1f lead=%.1f)", oldT, insets.trailing, insets.top, insets.leading);
     return insets;
 }
 
@@ -269,10 +269,22 @@ static void L16RemoveSplitProvider(void) {
 
 %hook _UIStatusBarStringView
 
+- (void)setAttributedText:(NSAttributedString *)attr {
+    if (attr && [self _l16IsTimeString:[attr string]]) {
+        NSMutableAttributedString *m = [attr mutableCopy];
+        [m addAttribute:NSFontAttributeName 
+                  value:[UIFont boldSystemFontOfSize:15.5] 
+                  range:NSMakeRange(0, m.length)];
+        %orig(m);
+        return;
+    }
+    %orig(attr);
+}
+
 - (void)setFont:(UIFont *)font {
     NSString *txt = ((UILabel *)self).text;
     if (txt && [self _l16IsTimeString:txt]) {
-        %orig([UIFont boldSystemFontOfSize:15.0]);
+        %orig([UIFont boldSystemFontOfSize:15.5]);
         return;
     }
     %orig(font);
@@ -281,7 +293,7 @@ static void L16RemoveSplitProvider(void) {
 - (void)setText:(NSString *)text {
     %orig(text);
     if (text && [self _l16IsTimeString:text]) {
-        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.0];
+        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.5];
     }
 }
 
