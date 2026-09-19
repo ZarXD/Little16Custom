@@ -228,23 +228,28 @@ static void L16LayoutSplit(UIView *root) {
     }
 
     L16LogItemFrames(self, @"pre");
-    L16LayoutSplit(self);
-    L16LogItemFrames(self, @"post");
 
-    static BOOL winLogged = NO;
-    if (!winLogged) {
-        winLogged = YES;
-        UIWindow *win = self.window;
-        L16DBG(@"fg window=%@ level=%.1f frame=%@", win, win.windowLevel,
-            NSStringFromCGRect(win.frame));
-    }
-
-    // DEBUG: prove whether this hook controls the VISIBLE bar.
-    for (UIView *v in self.subviews) {
-        if ([v isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
-            v.hidden = YES;
+    // One-time: detach item views from autolayout so our manual frames stick
+    // (stock keeps rewriting legacy frames between layout passes).
+    static BOOL freed = NO;
+    if (!freed) {
+        freed = YES;
+        NSMutableArray *toRemove = [NSMutableArray array];
+        for (NSLayoutConstraint *c in self.constraints) {
+            if ([self.subviews containsObject:c.firstItem] ||
+                [self.subviews containsObject:c.secondItem]) {
+                [toRemove addObject:c];
+            }
+        }
+        [self removeConstraints:toRemove];
+        for (UIView *v in self.subviews) {
+            [v removeConstraints:v.constraints];
+            v.translatesAutoresizingMaskIntoConstraints = YES;
         }
     }
+
+    L16LayoutSplit(self);
+    L16LogItemFrames(self, @"post");
 }
 %end
 
