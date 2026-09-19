@@ -244,43 +244,17 @@ static void L16RemoveSplitProvider(void) {
 
 %hook _UIStatusBarVisualProvider_Split1170
 
-+ (double)nativeDisplayWidth {
-    return 414.0; // Exact width of iPhone 8 Plus, prevents elements from squishing
-}
-
-+ (CGSize)notchSize {
-    // Smaller faux notch so the left and right regions have more than enough space
-    return CGSizeMake(100.0, 30.0);
+- (NSDirectionalEdgeInsets)expandedEdgeInsets {
+    NSDirectionalEdgeInsets orig = %orig;
+    orig.leading = 14.0;
+    orig.trailing = -39.0;
+    return orig;
 }
 
 - (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:15.0]; // Force bold clock
-}
-
-- (UIFont *)stringItemFont {
     return [UIFont boldSystemFontOfSize:15.0];
 }
 
-- (CGFloat)itemSpacing {
-    return 6.0; // Give space between signal, wifi, battery
-}
-
-- (NSDirectionalEdgeInsets)expandedEdgeInsets {
-    NSDirectionalEdgeInsets insets = %orig;
-    insets.leading = 15.0;
-    insets.trailing = 15.0;
-    return insets;
-}
-
-%end
-
-%hook _UIStatusBarStringView
-- (void)setText:(NSString *)text {
-    %orig(text);
-    if ([text containsString:@":"] && text.length >= 3 && text.length <= 10) {
-        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.0];
-    }
-}
 %end
 
 %end
@@ -684,8 +658,7 @@ static void L16DBG(NSString *fmt, ...) {
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
             %init(StatusBarSplitFix, 
-                  _UIStatusBarVisualProvider_Split1170 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1170"),
-                  _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
+                  _UIStatusBarVisualProvider_Split1170 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1170"));
             %init(BannerFix,
                 SBBannerWindow = NSClassFromString(@"SBBannerWindow"));
         } else if (statusBarStyle == 3) {
