@@ -211,44 +211,115 @@ static void L16RemoveSplitProvider(void) {
 @interface _UIStatusBarVisualProvider_FixedSplit : NSObject
 - (NSDirectionalEdgeInsets)leadingEdgeInsets;
 - (NSDirectionalEdgeInsets)trailingEdgeInsets;
+- (UIFont *)clockFont;
+- (UIFont *)pillFont;
+- (UIFont *)pillSmallFont;
+- (UIFont *)stringItemFont;
+- (CGFloat)itemSpacing;
 @end
 
 @interface _UIStatusBarVisualProvider_Split : NSObject
 - (UIFont *)clockFont;
+- (UIFont *)pillFont;
+- (UIFont *)pillSmallFont;
+- (UIFont *)stringItemFont;
 - (CGFloat)itemSpacing;
 @end
 
 @interface _UIStatusBarVisualProvider_Split1242 : _UIStatusBarVisualProvider_FixedSplit
+- (UIFont *)clockFont;
+- (UIFont *)pillFont;
+- (UIFont *)pillSmallFont;
+- (UIFont *)stringItemFont;
 - (CGFloat)itemSpacing;
 @end
 
 @interface _UIStatusBarStringView : UILabel
-- (BOOL)_l16IsTimeString:(NSString *)txt;
 @end
 
 %group StatusBarSplitFix
 
+static BOOL L16IsTimeString(NSString *str) {
+    if (!str || str.length < 3 || str.length > 12) return NO;
+    BOOL hasDigit = NO;
+    BOOL hasSep = NO;
+    for (NSUInteger i = 0; i < str.length; i++) {
+        unichar c = [str characterAtIndex:i];
+        if (c >= '0' && c <= '9') hasDigit = YES;
+        if (c == ':' || c == '.') hasSep = YES;
+    }
+    return hasDigit && hasSep;
+}
+
 %hook _UIStatusBarVisualProvider_Split
 
 - (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:15.5];
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (UIFont *)pillFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (UIFont *)pillSmallFont {
+    return [UIFont boldSystemFontOfSize:14.5];
+}
+
+- (UIFont *)stringItemFont {
+    return [UIFont boldSystemFontOfSize:16.0];
 }
 
 - (CGFloat)itemSpacing {
-    return 5.0;
+    return 4.0;
 }
 
 %end
 
 %hook _UIStatusBarVisualProvider_Split1242
 
+- (UIFont *)clockFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (UIFont *)pillFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (UIFont *)pillSmallFont {
+    return [UIFont boldSystemFontOfSize:14.5];
+}
+
+- (UIFont *)stringItemFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
 - (CGFloat)itemSpacing {
-    return 5.0;
+    return 4.0;
 }
 
 %end
 
 %hook _UIStatusBarVisualProvider_FixedSplit
+
+- (UIFont *)clockFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (UIFont *)pillFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (UIFont *)pillSmallFont {
+    return [UIFont boldSystemFontOfSize:14.5];
+}
+
+- (UIFont *)stringItemFont {
+    return [UIFont boldSystemFontOfSize:16.0];
+}
+
+- (CGFloat)itemSpacing {
+    return 4.0;
+}
 
 - (NSDirectionalEdgeInsets)leadingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
@@ -259,9 +330,8 @@ static void L16RemoveSplitProvider(void) {
 
 - (NSDirectionalEdgeInsets)trailingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
-    CGFloat oldT = insets.trailing;
-    insets.trailing += 20.0; // Brings battery ~20pt inward from right bezel, leaves leading at notch boundary
-    L16DBG(@"trailingEdgeInsets: orig.trail=%.1f -> new.trail=%.1f (top=%.1f lead=%.1f)", oldT, insets.trailing, insets.top, insets.leading);
+    insets.trailing = -38.0; // Wide container so Cellular + WiFi + Battery all fit
+    L16DBG(@"trailingEdgeInsets: new.trail=%.1f lead=%.1f (top=%.1f)", insets.trailing, insets.leading, insets.top);
     return insets;
 }
 
@@ -269,11 +339,25 @@ static void L16RemoveSplitProvider(void) {
 
 %hook _UIStatusBarStringView
 
+- (void)layoutSubviews {
+    %orig;
+    if (L16IsTimeString(self.text)) {
+        self.font = [UIFont boldSystemFontOfSize:16.0];
+    }
+}
+
+- (void)applyStyleAttributes:(id)arg1 {
+    %orig;
+    if (L16IsTimeString(self.text)) {
+        self.font = [UIFont boldSystemFontOfSize:16.0];
+    }
+}
+
 - (void)setAttributedText:(NSAttributedString *)attr {
-    if (attr && [self _l16IsTimeString:[attr string]]) {
+    if (attr && L16IsTimeString([attr string])) {
         NSMutableAttributedString *m = [attr mutableCopy];
         [m addAttribute:NSFontAttributeName 
-                  value:[UIFont boldSystemFontOfSize:15.5] 
+                  value:[UIFont boldSystemFontOfSize:16.0] 
                   range:NSMakeRange(0, m.length)];
         %orig(m);
         return;
@@ -282,9 +366,8 @@ static void L16RemoveSplitProvider(void) {
 }
 
 - (void)setFont:(UIFont *)font {
-    NSString *txt = ((UILabel *)self).text;
-    if (txt && [self _l16IsTimeString:txt]) {
-        %orig([UIFont boldSystemFontOfSize:15.5]);
+    if (L16IsTimeString(self.text)) {
+        %orig([UIFont boldSystemFontOfSize:16.0]);
         return;
     }
     %orig(font);
@@ -292,17 +375,9 @@ static void L16RemoveSplitProvider(void) {
 
 - (void)setText:(NSString *)text {
     %orig(text);
-    if (text && [self _l16IsTimeString:text]) {
-        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.5];
+    if (L16IsTimeString(text)) {
+        self.font = [UIFont boldSystemFontOfSize:16.0];
     }
-}
-
-%new
-- (BOOL)_l16IsTimeString:(NSString *)txt {
-    if (!txt || txt.length < 3 || txt.length > 8) return NO;
-    if (!([txt containsString:@":"] || [txt containsString:@"."])) return NO;
-    unichar first = [txt characterAtIndex:0];
-    return (first >= '0' && first <= '9');
 }
 
 %end
@@ -532,12 +607,6 @@ static void L16RemoveSplitProvider(void) {
 @interface CSQuickActionsViewController : NSObject
 @end
 
-@interface NCNotificationListView : UIView
-@end
-
-@interface CSFullscreenNotificationView : UIView
-@end
-
 %group QuickActions
 
 %hook UIWindow
@@ -576,22 +645,6 @@ static void L16RemoveSplitProvider(void) {
 }
 - (BOOL)hasCamera { return YES; }
 - (BOOL)hasFlashlight { return YES; }
-%end
-
-%hook NCNotificationListView
-- (void)setFrame:(CGRect)frame {
-    if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){16, 0, 0}]) {
-        frame = CGRectMake(0, -100, frame.size.width, frame.size.height);
-    }
-    %orig(frame);
-}
-%end
-
-%hook CSFullscreenNotificationView
-- (void)setFrame:(CGRect)frame {
-    frame = CGRectMake(0, -50, frame.size.width, frame.size.height);
-    %orig(frame);
-}
 %end
 
 %end
