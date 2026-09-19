@@ -168,6 +168,24 @@ static void L16DumpViewTree(UIView *root, int depth) {
     for (UIView *sub in root.subviews) L16DumpViewTree(sub, depth + 1);
 }
 
+static int L16SplitLogCount = 0;
+static void L16LogItemFrames(UIView *root, NSString *tag) {
+    if (L16SplitLogCount >= 30) return;
+    L16SplitLogCount++;
+    NSMutableString *s = [NSMutableString string];
+    for (UIView *v in root.subviews) {
+        if ([v isKindOfClass:NSClassFromString(@"_UIStatusBarCellularSignalView")] ||
+            [v isKindOfClass:NSClassFromString(@"_UIStatusBarWifiSignalView")] ||
+            [v isKindOfClass:NSClassFromString(@"_UIStaticBatteryView")] ||
+            [v isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
+            [s appendFormat:@"%@=%.0f,%.0f %.0fx%.0f | ",
+                NSStringFromClass([v class]), v.frame.origin.x, v.frame.origin.y,
+                v.frame.size.width, v.frame.size.height];
+        }
+    }
+    L16DBG(@"FG[%@] %@", tag, s);
+}
+
 static void L16LayoutSplit(UIView *root) {
     if (root.bounds.size.width <= 0) return;
 
@@ -207,7 +225,9 @@ static void L16LayoutSplit(UIView *root) {
         L16DBG(@"--- end tree ---");
     }
 
+    L16LogItemFrames(self, @"pre");
     L16LayoutSplit(self);
+    L16LogItemFrames(self, @"post");
 }
 %end
 
