@@ -305,9 +305,10 @@ static void L16RemoveSplitProvider(void) {
     %orig;
     static int logCount = 0;
     if (logCount++ < 3) {
+        UIView *sb = (UIView *)self;
         L16DBG(@"=== _UIStatusBar layoutSubviews frame=%@ bounds=%@ ===", 
-            NSStringFromCGRect(self.frame), NSStringFromCGRect(self.bounds));
-        [self _l16DumpSubviews:self depth:0];
+            NSStringFromCGRect(sb.frame), NSStringFromCGRect(sb.bounds));
+        [self _l16DumpSubviews:sb depth:0];
     }
 }
 
