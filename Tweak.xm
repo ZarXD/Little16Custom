@@ -295,6 +295,40 @@ static void L16RemoveSplitProvider(void) {
 
 %end
 
+@interface _UIStatusBar : UIView
+- (void)_l16DumpSubviews:(UIView *)v depth:(int)d;
+@end
+
+%hook _UIStatusBar
+
+- (void)layoutSubviews {
+    %orig;
+    static int logCount = 0;
+    if (logCount++ < 3) {
+        L16DBG(@"=== _UIStatusBar layoutSubviews frame=%@ bounds=%@ ===", 
+            NSStringFromCGRect(self.frame), NSStringFromCGRect(self.bounds));
+        [self _l16DumpSubviews:self depth:0];
+    }
+}
+
+%new
+- (void)_l16DumpSubviews:(UIView *)v depth:(int)d {
+    if (!v || d > 6) return;
+    NSMutableString *pad = [NSMutableString string];
+    for (int i = 0; i < d; i++) [pad appendString:@"  "];
+    NSString *extra = @"";
+    if ([v respondsToSelector:@selector(text)]) {
+        extra = [NSString stringWithFormat:@" text='%@' font=%@", [(id)v text], [(id)v font]];
+    }
+    L16DBG(@"%@%@ frame=%@ hidden=%d alpha=%.2f%@",
+        pad, NSStringFromClass([v class]), NSStringFromCGRect(v.frame), v.hidden, v.alpha, extra);
+    for (UIView *sub in v.subviews) {
+        [self _l16DumpSubviews:sub depth:d + 1];
+    }
+}
+
+%end
+
 %end
 
 // ============================================================
@@ -691,7 +725,8 @@ static void L16DBG(NSString *fmt, ...) {
             %init(StatusBarSplitFix,
                 _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
                 _UIStatusBarVisualProvider_Split1242 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1242"),
-                _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
+                _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"),
+                _UIStatusBar = NSClassFromString(@"_UIStatusBar"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
