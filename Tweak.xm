@@ -240,6 +240,17 @@ static void L16LayoutSplit(UIView *root) {
         L16DumpViewTree(self, 0);
         L16DBG(@"--- end tree ---");
     }
+    static BOOL screenLogged = NO;
+    if (!screenLogged) {
+        screenLogged = YES;
+        @try {
+            UIScreen *sc = [UIScreen mainScreen];
+            L16DBG(@"screen: bounds=%@ scale=%.2f native=%@", NSStringFromCGRect(sc.bounds),
+                sc.scale, NSStringFromCGRect(sc.nativeBounds));
+        } @catch (NSException *e) {
+            L16DBG(@"screen log skipped: %@", e.name);
+        }
+    }
 
     L16LogItemFrames(self, @"pre");
     L16LayoutSplit(self);
@@ -593,9 +604,6 @@ static void L16DBG(NSString *fmt, ...) {
             NSClassFromString(@"_UIStatusBarVisualProvider_Split61") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil);
-        UIScreen *sc = [UIScreen mainScreen];
-        L16DBG(@"screen: bounds=%@ scale=%.2f native=%@", NSStringFromCGRect(sc.bounds),
-            sc.scale, NSStringFromCGRect(sc.nativeBounds));
         loadPreferences();
         %init(Diagnostics);
 
