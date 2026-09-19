@@ -251,6 +251,8 @@ static void L16RemoveSplitProvider(void) {
 }
 %end
 
+%end
+
 %group HideSBCC
 
 %hook CCUIStatusBarStyleSnapshot
@@ -269,8 +271,6 @@ static void L16RemoveSplitProvider(void) {
 - (void)_addHeaderContentTransformAnimationToBatch:(id)arg1 transitionState:(id)arg2 {
     %orig(nil, arg2);
 }
-%end
-
 %end
 
 %end
