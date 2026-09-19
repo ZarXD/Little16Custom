@@ -141,6 +141,10 @@ static void L16DBG(NSString *fmt, ...);
 @interface _UIStatusBarForegroundView : UIView
 @end
 
+@interface _UIStaticBatteryView : UIView
+- (void)setShowsPercentage:(BOOL)arg1;
+@end
+
 static UIView *L16FindClassInView(UIView *root, NSString *klass, int depth) {
     if (!root || depth > 8) return nil;
     if ([root isKindOfClass:NSClassFromString(klass)]) return root;
@@ -219,7 +223,7 @@ static void L16LayoutSplit(UIView *root) {
     UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
     if (!batt) batt = L16FindClassInView(root, @"_UIStatusBarBatteryView", 0);
     if (batt && [batt respondsToSelector:@selector(setShowsPercentage:)]) {
-        @try { [(id)batt setShowsPercentage:YES]; } @catch (id ex) {}
+        @try { [(_UIStaticBatteryView *)batt setShowsPercentage:YES]; } @catch (id ex) {}
     }
 
     CGFloat rightEdge = W - 14.0;
