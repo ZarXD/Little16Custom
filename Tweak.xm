@@ -244,17 +244,22 @@ static void L16RemoveSplitProvider(void) {
 
 %hook _UIStatusBarVisualProvider_Split1170
 
-- (NSDirectionalEdgeInsets)expandedEdgeInsets {
-    NSDirectionalEdgeInsets orig = %orig;
-    orig.leading = 14.0;
-    orig.trailing = -39.0;
-    return orig;
++ (double)nativeDisplayWidth {
+    return 414.0; // Proper width for iPhone 8 Plus, fixes overlap
 }
 
 - (UIFont *)clockFont {
     return [UIFont boldSystemFontOfSize:15.0];
 }
 
+%end
+
+%hook CSCombinedListViewController
+- (UIEdgeInsets)_listViewDefaultContentInsets {
+    UIEdgeInsets insets = %orig;
+    insets.bottom += 60.0; // Push lockscreen notifications up to avoid Quick Actions
+    return insets;
+}
 %end
 
 %end
