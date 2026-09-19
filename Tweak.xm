@@ -180,63 +180,120 @@ static void L16LogItemFrames(UIView *root, NSString *tag) {
     L16DBG(@"FG[%@] %@", tag, s);
 }
 
-static UIView *sL16Container = nil;
+static UIView *L16FindTimeView(UIView *root, int depth) {
+    if (!root || depth > 6) return nil;
+    if ([root respondsToSelector:@selector(text)]) {
+        NSString *txt = [(id)root text];
+        if (txt && [txt rangeOfString:@":"].location != NSNotFound) return root;
+    }
+    for (UIView *sub in root.subviews) {
+        UIView *found = L16FindTimeView(sub, depth + 1);
+        if (found) return found;
+    }
+    return nil;
+}
 
-// Reparent cellular + wifi into our OWN full-width container glued to the
-// right edge (just left of the battery). Once they are no longer DIRECT
-// subviews of ForegroundView, stock layout can't reset them; the icon views
-// themselves are the SAME Apple views, so assets stay pixel-identical.
 static void L16LayoutSplit(UIView *root) {
     CGFloat W = root.bounds.size.width;
-    if (W <= 0) return;
+    CGFloat H = root.bounds.size.height;
+    if (W <= 0 || H <= 0) return;
 
-    if (!sL16Container || sL16Container.superview != root) {
-        sL16Container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, W, 20)];
-        sL16Container.userInteractionEnabled = NO;
-        [root addSubview:sL16Container];
+    // 1. Time (Clock) -> Left ear (x = 20.0)
+    UIView *timeView = L16FindTimeView(root, 0);
+    if (timeView && timeView.superview) {
+        CGRect tf = [timeView.superview convertRect:timeView.frame toView:root];
+        tf.origin.x = 20.0;
+        tf.origin.y = (H - tf.size.height) / 2.0;
+        timeView.frame = [root convertRect:tf toView:timeView.superview];
+        timeView.hidden = NO;
     }
-    sL16Container.frame = CGRectMake(0, 0, W, 20);
 
+    // 2. Hide carrier name / extra string views (iPhone X only shows time in status bar)
+    for (UIView *sub in root.subviews) {
+        if (sub != timeView && [sub respondsToSelector:@selector(text)]) {
+            sub.hidden = YES;
+        }
+    }
+
+    // 3. Battery -> Far right (14.0 pt margin from right edge)
     UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
-    UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
-    // WiFi is rendered as a plain _UIStatusBarImageView on home-button iPhones.
+    if (!batt) batt = L16FindClassInView(root, @"_UIStatusBarBatteryView", 0);
+    if (batt && [batt respondsToSelector:@selector(setShowsPercentage:)]) {
+        @try { [(id)batt setShowsPercentage:YES]; } @catch (id ex) {}
+    }
+
+    CGFloat rightEdge = W - 14.0;
+    if (batt && batt.superview) {
+        CGRect bf = [batt.superview convertRect:batt.frame toView:root];
+        bf.origin.x = rightEdge - bf.size.width;
+        bf.origin.y = (H - bf.size.height) / 2.0;
+        batt.frame = [root convertRect:bf toView:batt.superview];
+        batt.hidden = NO;
+        rightEdge = bf.origin.x - 4.0;
+    }
+
+    // 4. Wi-Fi Signal
     UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
     if (!wifi) {
         for (UIView *sub in root.subviews) {
-            if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarImageView")]
-                && sub != batt && sub.frame.size.width > 0) {
-                wifi = sub;
-                break;
+            if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarImageView")] || [sub isKindOfClass:[UIImageView class]]) {
+                UIImageView *iv = (UIImageView *)sub;
+                NSString *desc = [[iv image] description] ?: @"";
+                if ([desc rangeOfString:@"wifi" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                    wifi = sub;
+                    break;
+                }
             }
         }
     }
-    if (!wifi && !cell) return;
-
-    CGFloat rightX = W - 6.0;
-    if (batt && batt.superview) {
-        CGRect bf = [batt.superview convertRect:batt.frame toView:root];
-        rightX = bf.origin.x - 4.0;
+    if (wifi && wifi.superview && wifi.frame.size.width > 0 && !wifi.hidden) {
+        CGRect wf = [wifi.superview convertRect:wifi.frame toView:root];
+        wf.origin.x = rightEdge - wf.size.width;
+        wf.origin.y = (H - wf.size.height) / 2.0;
+        wifi.frame = [root convertRect:wf toView:wifi.superview];
+        wifi.hidden = NO;
+        rightEdge = wf.origin.x - 4.0;
     }
 
-    if (wifi && wifi.superview != sL16Container) [sL16Container addSubview:wifi];
-    if (cell && cell.superview != sL16Container) [sL16Container addSubview:cell];
-
-    // Drop stale clones stock replaced (avoids ghost icons).
-    for (UIView *v in [sL16Container.subviews copy]) {
-        if (v != wifi && v != cell) [v removeFromSuperview];
+    // 5. Cellular Signal
+    UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
+    if (cell && cell.superview && cell.frame.size.width > 0 && !cell.hidden) {
+        CGRect cf = [cell.superview convertRect:cell.frame toView:root];
+        cf.origin.x = rightEdge - cf.size.width;
+        cf.origin.y = (H - cf.size.height) / 2.0;
+        cell.frame = [root convertRect:cf toView:cell.superview];
+        cell.hidden = NO;
+        rightEdge = cf.origin.x - 4.0;
     }
 
-    CGFloat gap = 4.0;
-    if (wifi) {
-        CGRect f = wifi.frame;
-        if (f.size.width > 0) f.origin.x = rightX - f.size.width;
-        wifi.frame = f;
-        rightX = f.origin.x - gap;
-    }
-    if (cell) {
-        CGRect f = cell.frame;
-        if (f.size.width > 0) f.origin.x = rightX - f.size.width;
-        cell.frame = f;
+    // 6. Secondary icons (DND/Focus moon, Location, Alarm, VPN)
+    for (UIView *sub in root.subviews) {
+        if (sub == batt || sub == wifi || sub == cell || sub == timeView) continue;
+        if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarImageView")] || [sub isKindOfClass:[UIImageView class]]) {
+            UIImageView *iv = (UIImageView *)sub;
+            NSString *desc = [[iv image] description] ?: @"";
+            if ([desc rangeOfString:@"moon" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+                [desc rangeOfString:@"focus" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+                [desc rangeOfString:@"location" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                // Sits right after the time in the left ear
+                if (timeView && timeView.superview) {
+                    CGRect tf = [timeView.superview convertRect:timeView.frame toView:root];
+                    CGRect mf = [sub.superview convertRect:sub.frame toView:root];
+                    mf.origin.x = tf.origin.x + tf.size.width + 4.0;
+                    mf.origin.y = (H - mf.size.height) / 2.0;
+                    sub.frame = [root convertRect:mf toView:sub.superview];
+                    sub.hidden = NO;
+                }
+            } else if (sub.frame.size.width > 0 && !sub.hidden) {
+                // Alarm / VPN / etc: sits to the left of cellular
+                CGRect of = [sub.superview convertRect:sub.frame toView:root];
+                of.origin.x = rightEdge - of.size.width;
+                of.origin.y = (H - of.size.height) / 2.0;
+                sub.frame = [root convertRect:of toView:sub.superview];
+                sub.hidden = NO;
+                rightEdge = of.origin.x - 4.0;
+            }
+        }
     }
 }
 
@@ -246,13 +303,6 @@ static void L16LayoutSplit(UIView *root) {
 - (void)layoutSubviews {
     %orig;
 
-    static BOOL dumped = NO;
-    if (!dumped) {
-        dumped = YES;
-        L16DBG(@"--- status bar tree ---");
-        L16DumpViewTree(self, 0);
-        L16DBG(@"--- end tree ---");
-    }
     static BOOL screenLogged = NO;
     if (!screenLogged) {
         screenLogged = YES;
