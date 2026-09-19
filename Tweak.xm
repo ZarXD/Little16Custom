@@ -176,22 +176,24 @@ static void L16LayoutSplit(UIView *root) {
     UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
     UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
     UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
+    if (!cell && !wifi) return;
 
-    CGFloat xEdge = root.bounds.size.width - 6.0;
+    // Battery is already right-aligned on iOS16 home-button; tuck
+    // wifi + cellular just to the left of it (iPhone X right "ear").
+    CGFloat xEdge;
+    if (batt && batt.superview) {
+        CGRect bf = [batt.superview convertRect:batt.frame toView:root];
+        xEdge = bf.origin.x - 4.0;
+    } else {
+        xEdge = root.bounds.size.width - 6.0;
+    }
+
     CGFloat gap = 4.0;
-    L16PlaceXRight(&xEdge, batt, root, gap);
     L16PlaceXRight(&xEdge, wifi, root, gap);
     L16PlaceXRight(&xEdge, cell, root, gap);
 }
 
 %group StatusBarModern
-
-%hook _UIStatusBar
-- (void)layoutSubviews {
-    %orig;
-    L16LayoutSplit(self);
-}
-%end
 
 %hook _UIStatusBarForegroundView
 - (void)layoutSubviews {
