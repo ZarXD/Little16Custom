@@ -533,6 +533,32 @@ static void L16DBG(NSString *fmt, ...) {
             NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Split1170") != nil);
+        // Probe ALL known Split providers to find the right one for 414pt width
+        NSArray *probeNames = @[
+            @"_UIStatusBarVisualProvider_Split375",
+            @"_UIStatusBarVisualProvider_Split390",
+            @"_UIStatusBarVisualProvider_Split393",
+            @"_UIStatusBarVisualProvider_Split414",
+            @"_UIStatusBarVisualProvider_Split428",
+            @"_UIStatusBarVisualProvider_Split430",
+            @"_UIStatusBarVisualProvider_Split812",
+            @"_UIStatusBarVisualProvider_Split828",
+            @"_UIStatusBarVisualProvider_Split844",
+            @"_UIStatusBarVisualProvider_Split852",
+            @"_UIStatusBarVisualProvider_Split926",
+            @"_UIStatusBarVisualProvider_Split1080",
+            @"_UIStatusBarVisualProvider_Split1125",
+            @"_UIStatusBarVisualProvider_Split1242",
+            @"_UIStatusBarVisualProvider_Split1284",
+            @"_UIStatusBarVisualProvider_Split1290",
+            @"_UIStatusBarVisualProvider_RoundedPad",
+            @"_UIStatusBarVisualProvider_Phone",
+            @"_UIStatusBarVisualProvider_LegacyPhone",
+            @"_UIStatusBarVisualProvider_iOS",
+        ];
+        for (NSString *name in probeNames) {
+            if (NSClassFromString(name)) L16DBG(@"PROBE EXISTS: %@", name);
+        }
         loadPreferences();
         %init(Diagnostics);
 
