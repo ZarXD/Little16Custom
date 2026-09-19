@@ -105,6 +105,8 @@ static void RoundIconsInView(UIView *view, CGFloat radius) {
 // Status Bar
 // ============================================================
 
+void L16DBG(NSString *fmt, ...);
+
 %group StatusBarPad
 
 %hook _UIStatusBarVisualProvider_iOS
@@ -132,7 +134,8 @@ static void RoundIconsInView(UIView *view, CGFloat radius) {
 // view-layout instead of provider swap (no rdar red bar).
 // ============================================================
 
-@class _UIStatusBar;
+@interface _UIStatusBar : UIView
+@end
 
 static BOOL L16IsDescendantOf(UIView *view, NSString *klass) {
     id cur = view;
