@@ -194,24 +194,24 @@ static BOOL L16IsControlCenterView(UIView *view) {
 - (void)setText:(NSString *)text {
     if (statusBarStyle == 3 && text.length > 0) {
         if ([text hasSuffix:@"%"] && text.length <= 5) {
-            self.hidden = YES;
-            self.alpha = 0.0;
+            ((UIView *)self).hidden = YES;
+            ((UIView *)self).alpha = 0.0;
             %orig(@"");
             return;
         }
         static NSArray *dateKeywords = nil;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            dateKeywords = [@[@"Jan", @"Feb", @"Mar", @"Apr", @"May", @"Jun", 
-                              @"Jul", @"Aug", @"Sep", @"Oct", @"Nov", @"Dec",
-                              @"Mei", @"Agu", @"Okt", @"Des",
-                              @"Mon", @"Tue", @"Wed", @"Thu", @"Fri", @"Sat", @"Sun",
-                              @"Sen", @"Sel", @"Rab", @"Kam", @"Jum", @"Sab", @"Min"] retain];
+            dateKeywords = @[@"Jan", @"Feb", @"Mar", @"Apr", @"May", @"Jun", 
+                             @"Jul", @"Aug", @"Sep", @"Oct", @"Nov", @"Dec",
+                             @"Mei", @"Agu", @"Okt", @"Des",
+                             @"Mon", @"Tue", @"Wed", @"Thu", @"Fri", @"Sat", @"Sun",
+                             @"Sen", @"Sel", @"Rab", @"Kam", @"Jum", @"Sab", @"Min"];
         });
         for (NSString *kw in dateKeywords) {
             if ([text rangeOfString:kw options:NSCaseInsensitiveSearch].location != NSNotFound) {
-                self.hidden = YES;
-                self.alpha = 0.0;
+                ((UIView *)self).hidden = YES;
+                ((UIView *)self).alpha = 0.0;
                 %orig(@"");
                 return;
             }
