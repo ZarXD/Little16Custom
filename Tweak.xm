@@ -151,15 +151,6 @@ static UIView *L16FindClassInView(UIView *root, NSString *klass, int depth) {
     return nil;
 }
 
-static void L16PlaceXRight(CGFloat *xEdge, UIView *v, UIView *root, CGFloat gap) {
-    if (!v || !v.superview) return;
-    CGRect fr = [v.superview convertRect:v.frame toView:root];
-    *xEdge -= fr.size.width;
-    fr.origin.x = *xEdge;
-    v.frame = [root convertRect:fr toView:v.superview];
-    *xEdge -= gap;
-}
-
 static void L16DumpViewTree(UIView *root, int depth) {
     if (!root || depth > 5) return;
     NSMutableString *pad = [NSMutableString string];
@@ -235,35 +226,6 @@ static void L16LayoutSplit(UIView *root) {
         CGRect f = cell.frame;
         if (f.size.width > 0) f.origin.x = rightX - f.size.width;
         cell.frame = f;
-    }
-}
-
-static void L16LayoutSplit(UIView *root) {
-    CGFloat W = root.bounds.size.width;
-    if (W <= 0) return;
-
-    UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
-    UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
-    UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
-
-    // Right "ear": battery far right, wifi left of it, cellular left of wifi.
-    CGFloat x = W - 6.0;
-    CGFloat gap = 4.0;
-    L16PlaceXRight(&x, batt, root, gap);
-    L16PlaceXRight(&x, wifi, root, gap);
-    L16PlaceXRight(&x, cell, root, gap);
-
-    // Everything else stacks from the far left (time + any extra items),
-    // so new items can't pile up at (0,0) since %orig is skipped here.
-    CGFloat lx = 7.0;
-    NSArray *subs = [root.subviews copy];
-    for (UIView *v in subs) {
-        if (v == batt || v == wifi || v == cell) continue;
-        if (!v.superview) continue;
-        CGRect fr = [v.superview convertRect:v.frame toView:root];
-        fr.origin.x = lx;
-        v.frame = [root convertRect:fr toView:v.superview];
-        lx += fr.size.width;
     }
 }
 
