@@ -11,7 +11,7 @@ static NSString *const kPrefsID = @"com.michaelmelita1.little16";
 static NSString *const kNotification = @"com.michaelmelita1.little16/prefsUpdated";
 
 static BOOL enabled = YES;
-static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = Modern (centered clock), 3 = Rounded iPad
+static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = iPhone X (split: time left, indicators right), 3 = Rounded iPad
 static NSInteger dockStyle = 1;           // 0 = Legacy, 1 = iPad (floating)
 static NSInteger ccPosition = 3;          // 3 = Top Right (status bar), 1 = Bottom Right, 2 = Bottom Left, 0 = Disabled
 static BOOL hideDockBackground = NO;
@@ -129,37 +129,32 @@ static void L16DBG(NSString *fmt, ...);
 %end
 
 // ============================================================
-// Modern style: center the clock like notched iPhones, WITHOUT any
-// resolution change. iOS16 removed the split providers, so we do
-// view-layout instead of provider swap (no rdar red bar).
+// iPhone X style: white "split" status bar look — time stays on
+// the LEFT, all other indicators (cellular, wifi, battery) are
+// pushed to the RIGHT. iOS16 removed the split providers, so we
+// do view-layout instead of provider swap (no rdar red bar).
 // ============================================================
 
 @interface _UIStatusBar : UIView
 @end
 
-static BOOL L16IsDescendantOf(UIView *view, NSString *klass) {
-    id cur = view;
-    while (cur) {
-        if ([cur isKindOfClass:NSClassFromString(klass)]) return YES;
-        cur = [cur superview];
-    }
-    return NO;
-}
-
-static UIView *L16FindClockView(UIView *root, int depth) {
+static UIView *L16FindClassInView(UIView *root, NSString *klass, int depth) {
     if (!root || depth > 8) return nil;
-
+    if ([root isKindOfClass:NSClassFromString(klass)]) return root;
     for (UIView *sub in root.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")] &&
-            L16IsDescendantOf(sub, @"_UIStatusBarTimeItem")) {
-            return sub;
-        }
-    }
-    for (UIView *sub in root.subviews) {
-        UIView *found = L16FindClockView(sub, depth + 1);
+        UIView *found = L16FindClassInView(sub, klass, depth + 1);
         if (found) return found;
     }
     return nil;
+}
+
+static void L16PlaceXRight(CGFloat *xEdge, UIView *v, UIView *root, CGFloat gap) {
+    if (!v || !v.superview) return;
+    CGRect fr = [v.superview convertRect:v.frame toView:root];
+    *xEdge -= fr.size.width;
+    fr.origin.x = *xEdge;
+    v.frame = [root convertRect:fr toView:v.superview];
+    *xEdge -= gap;
 }
 
 static void L16DumpViewTree(UIView *root, int depth) {
@@ -185,13 +180,17 @@ static void L16DumpViewTree(UIView *root, int depth) {
     }
 
     if (self.bounds.size.width <= 0) return;
-    UIView *clock = L16FindClockView(self, 0);
-    if (!clock || !clock.superview) return;
 
-    CGRect fr = [clock.superview convertRect:clock.frame toView:self];
-    fr.origin.x = (self.bounds.size.width - fr.size.width) / 2.0;
-    clock.frame = [self convertRect:fr toView:clock.superview];
-    clock.hidden = NO;
+    UIView *batt = L16FindClassInView(self, @"_UIStatusBarBatteryView", 0);
+    UIView *wifi = L16FindClassInView(self, @"_UIStatusBarWifiSignalView", 0);
+    UIView *cell = L16FindClassInView(self, @"_UIStatusBarCellularSignalView", 0);
+    if (!batt && !wifi && !cell) return;
+
+    CGFloat xEdge = self.bounds.size.width - 6.0;
+    CGFloat gap = 4.0;
+    L16PlaceXRight(&xEdge, batt, self, gap);
+    L16PlaceXRight(&xEdge, wifi, self, gap);
+    L16PlaceXRight(&xEdge, cell, self, gap);
 }
 %end
 
