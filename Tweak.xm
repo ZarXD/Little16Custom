@@ -593,6 +593,9 @@ static void L16DBG(NSString *fmt, ...) {
             NSClassFromString(@"_UIStatusBarVisualProvider_Split61") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil);
+        UIScreen *sc = [UIScreen mainScreen];
+        L16DBG(@"screen: bounds=%@ scale=%.2f native=%@", NSStringFromCGRect(sc.bounds),
+            sc.scale, NSStringFromCGRect(sc.nativeBounds));
         loadPreferences();
         %init(Diagnostics);
 
