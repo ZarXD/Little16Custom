@@ -233,6 +233,8 @@ static void L16LayoutSplit(UIView *root) {
 
 %hook _UIStatusBarForegroundView
 - (void)layoutSubviews {
+    %orig;
+
     static BOOL dumped = NO;
     if (!dumped) {
         dumped = YES;
