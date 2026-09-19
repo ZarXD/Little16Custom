@@ -192,75 +192,81 @@ static void L16RemoveSplitProvider(void) {
 }
 
 // ============================================================
+// ============================================================
 // iPhone X split status bar layout fix for iPhone 8 Plus:
-// 1. Insets: FixedSplit calculates negative offsets (-31pt)
-//    on non-curved screens. We add +40pt to bring clock & battery
-//    into perfect ~14-16pt visible margins from screen edges.
-// 2. Notch: FixedSplit reserves a ~209pt phantom camera notch in
-//    the middle. Shrinking it to 80pt gives the trailing ear
-//    an extra 65pt of width so cellular, wifi, and battery sit
-//    side-by-side with ZERO overlapping.
-// 3. Font: _UIStatusBarStringView is hooked to ensure the clock
-//    always renders in crisp 14.5pt semibold monospaced font.
+// 1. Insets: leading=14.0 (clean 15pt margin for clock),
+//    trailing=-39.0 (battery ends at 399pt, 15pt right margin),
+//    leading=0.0 on trailing ear (expands trailing region width).
+// 2. Fonts: Split provider clockFont returns 15.5pt bold.
+//    _UIStatusBarStringView enforces 15.5pt bold + sizeToFit.
+// 3. Spacing & No Overlap: itemSpacing returns 5.0pt.
+//    _UIStatusBarForegroundView layoutSubviews guarantees:
+//    - Clock at x=15.0, 15.5pt bold
+//    - Battery anchored at W - 15.0 - width (hidden=NO, alpha=1.0)
+//    - Trailing icons (WiFi, Cellular) laid out sequentially
+//      with exact 5.0pt spacing (hidden=NO, alpha=1.0)
+//    - ZERO overlapping, ZERO missing icons.
 // ============================================================
 
 @interface _UIStatusBarVisualProvider_FixedSplit : NSObject
 - (NSDirectionalEdgeInsets)leadingEdgeInsets;
 - (NSDirectionalEdgeInsets)trailingEdgeInsets;
-- (CGSize)notchSize;
-+ (CGSize)notchSize;
+@end
+
+@interface _UIStatusBarVisualProvider_Split : NSObject
+- (UIFont *)clockFont;
+- (CGFloat)itemSpacing;
 @end
 
 @interface _UIStatusBarVisualProvider_Split1242 : _UIStatusBarVisualProvider_FixedSplit
-+ (CGSize)notchSize;
+- (CGFloat)itemSpacing;
 @end
 
 @interface _UIStatusBarStringView : UILabel
+- (BOOL)_l16IsTimeString:(NSString *)txt;
+- (void)_l16ApplyTimeFontIfNeeded;
+@end
+
+@interface _UIStatusBarForegroundView : UIView
 @end
 
 %group StatusBarSplitFix
 
-%hook _UIStatusBarVisualProvider_FixedSplit
+%hook _UIStatusBarVisualProvider_Split
 
-- (NSDirectionalEdgeInsets)leadingEdgeInsets {
-    NSDirectionalEdgeInsets insets = %orig;
-    CGFloat oldL = insets.leading;
-    insets.leading += 40.0;
-    L16DBG(@"leadingEdgeInsets: orig.leading=%.1f -> new.leading=%.1f (top=%.1f)", oldL, insets.leading, insets.top);
-    return insets;
+- (UIFont *)clockFont {
+    return [UIFont boldSystemFontOfSize:15.5];
 }
 
-- (NSDirectionalEdgeInsets)trailingEdgeInsets {
-    NSDirectionalEdgeInsets insets = %orig;
-    CGFloat oldT = insets.trailing;
-    insets.trailing += 40.0;
-    L16DBG(@"trailingEdgeInsets: orig.trailing=%.1f -> new.trailing=%.1f (top=%.1f)", oldT, insets.trailing, insets.top);
-    return insets;
-}
-
-- (CGSize)notchSize {
-    CGSize sz = %orig;
-    L16DBG(@"FixedSplit -notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
-    sz.width = 80.0;
-    return sz;
-}
-
-+ (CGSize)notchSize {
-    CGSize sz = %orig;
-    L16DBG(@"FixedSplit +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
-    sz.width = 80.0;
-    return sz;
+- (CGFloat)itemSpacing {
+    return 5.0;
 }
 
 %end
 
 %hook _UIStatusBarVisualProvider_Split1242
 
-+ (CGSize)notchSize {
-    CGSize sz = %orig;
-    L16DBG(@"Split1242 +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
-    sz.width = 80.0;
-    return sz;
+- (CGFloat)itemSpacing {
+    return 5.0;
+}
+
+%end
+
+%hook _UIStatusBarVisualProvider_FixedSplit
+
+- (NSDirectionalEdgeInsets)leadingEdgeInsets {
+    NSDirectionalEdgeInsets insets = %orig;
+    insets.leading = 14.0;
+    L16DBG(@"leadingEdgeInsets: new.lead=%.1f (top=%.1f)", insets.leading, insets.top);
+    return insets;
+}
+
+- (NSDirectionalEdgeInsets)trailingEdgeInsets {
+    NSDirectionalEdgeInsets insets = %orig;
+    insets.trailing = -39.0;
+    insets.leading = 0.0;
+    L16DBG(@"trailingEdgeInsets: new.trail=%.1f lead=%.1f (top=%.1f)", insets.trailing, insets.leading, insets.top);
+    return insets;
 }
 
 %end
@@ -269,62 +275,134 @@ static void L16RemoveSplitProvider(void) {
 
 - (void)didMoveToWindow {
     %orig;
-    UILabel *lbl = (UILabel *)self;
-    NSString *txt = lbl.text;
-    if (txt.length >= 4 && txt.length <= 8) {
-        if ([txt containsString:@":"] || [txt containsString:@"."]) {
-            unichar first = [txt characterAtIndex:0];
-            if (first >= '0' && first <= '9') {
-                lbl.font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
-            }
-        }
-    }
+    [self _l16ApplyTimeFontIfNeeded];
 }
 
 - (void)setText:(NSString *)text {
     %orig(text);
-    if (text.length >= 4 && text.length <= 8) {
-        if ([text containsString:@":"] || [text containsString:@"."]) {
-            unichar first = [text characterAtIndex:0];
-            if (first >= '0' && first <= '9') {
-                ((UILabel *)self).font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
-            }
-        }
+    [self _l16ApplyTimeFontIfNeeded];
+}
+
+- (void)setFont:(UIFont *)font {
+    NSString *txt = ((UILabel *)self).text;
+    if (txt && [self _l16IsTimeString:txt]) {
+        %orig([UIFont boldSystemFontOfSize:15.5]);
+        return;
+    }
+    %orig(font);
+}
+
+%new
+- (BOOL)_l16IsTimeString:(NSString *)txt {
+    if (!txt || txt.length < 3 || txt.length > 8) return NO;
+    if (!([txt containsString:@":"] || [txt containsString:@"."])) return NO;
+    unichar first = [txt characterAtIndex:0];
+    return (first >= '0' && first <= '9');
+}
+
+%new
+- (void)_l16ApplyTimeFontIfNeeded {
+    UILabel *lbl = (UILabel *)self;
+    NSString *txt = lbl.text;
+    if ([self _l16IsTimeString:txt]) {
+        lbl.font = [UIFont boldSystemFontOfSize:15.5];
+        [lbl sizeToFit];
     }
 }
 
 %end
 
-@interface _UIStatusBar : UIView
-- (void)_l16DumpSubviews:(UIView *)v depth:(int)d;
-@end
-
-%hook _UIStatusBar
+%hook _UIStatusBarForegroundView
 
 - (void)layoutSubviews {
     %orig;
-    static int logCount = 0;
-    if (logCount++ < 3) {
-        UIView *sb = (UIView *)self;
-        L16DBG(@"=== _UIStatusBar layoutSubviews frame=%@ bounds=%@ ===", 
-            NSStringFromCGRect(sb.frame), NSStringFromCGRect(sb.bounds));
-        [self _l16DumpSubviews:sb depth:0];
-    }
-}
 
-%new
-- (void)_l16DumpSubviews:(UIView *)v depth:(int)d {
-    if (!v || d > 6) return;
-    NSMutableString *pad = [NSMutableString string];
-    for (int i = 0; i < d; i++) [pad appendString:@"  "];
-    NSString *extra = @"";
-    if ([v respondsToSelector:@selector(text)]) {
-        extra = [NSString stringWithFormat:@" text='%@' font=%@", [(id)v text], [(id)v font]];
+    CGFloat W = self.bounds.size.width;
+    if (W < 300.0) return;
+
+    // 1. Time view
+    for (UIView *sub in self.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
+            UILabel *lbl = (UILabel *)sub;
+            NSString *txt = lbl.text;
+            if (txt && [txt length] >= 3 && [txt length] <= 8 &&
+                ([txt containsString:@":"] || [txt containsString:@"."]) &&
+                [txt characterAtIndex:0] >= '0' && [txt characterAtIndex:0] <= '9') {
+                lbl.font = [UIFont boldSystemFontOfSize:15.5];
+                [lbl sizeToFit];
+                CGRect tf = lbl.frame;
+                tf.origin.x = 15.0;
+                lbl.frame = tf;
+                lbl.hidden = NO;
+                lbl.alpha = 1.0;
+            }
+        }
     }
-    L16DBG(@"%@%@ frame=%@ hidden=%d alpha=%.2f%@",
-        pad, NSStringFromClass([v class]), NSStringFromCGRect(v.frame), v.hidden, v.alpha, extra);
-    for (UIView *sub in v.subviews) {
-        [self _l16DumpSubviews:sub depth:d + 1];
+
+    // 2. Find battery view
+    UIView *batt = nil;
+    for (UIView *sub in self.subviews) {
+        if ([NSStringFromClass([sub class]) containsString:@"Battery"]) {
+            batt = sub;
+            break;
+        }
+    }
+
+    // 3. Find other trailing icon views (wifi, cellular, etc.)
+    NSMutableArray<UIView *> *trailingIcons = [NSMutableArray array];
+    for (UIView *sub in self.subviews) {
+        if (sub == batt) continue;
+        BOOL isIconClass = [sub isKindOfClass:[UIImageView class]] ||
+            [NSStringFromClass([sub class]) containsString:@"Image"] ||
+            [NSStringFromClass([sub class]) containsString:@"Signal"] ||
+            [NSStringFromClass([sub class]) containsString:@"Wifi"] ||
+            [NSStringFromClass([sub class]) containsString:@"Cellular"];
+        if (isIconClass) {
+            BOOL hasContent = NO;
+            if ([sub respondsToSelector:@selector(image)]) {
+                UIImage *img = [(UIImageView *)sub image];
+                if (img != nil) hasContent = YES;
+            } else if ([NSStringFromClass([sub class]) containsString:@"Signal"] ||
+                       [NSStringFromClass([sub class]) containsString:@"Cellular"] ||
+                       [NSStringFromClass([sub class]) containsString:@"Wifi"]) {
+                hasContent = YES;
+            }
+            if (hasContent && sub.frame.origin.x > W * 0.4) {
+                if (sub.frame.size.width == 0) [sub sizeToFit];
+                if (sub.frame.size.width > 0) {
+                    [trailingIcons addObject:sub];
+                }
+            }
+        }
+    }
+
+    // Sort trailing icons from left to right by their current X position
+    [trailingIcons sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
+        if (a.frame.origin.x < b.frame.origin.x) return NSOrderedAscending;
+        if (a.frame.origin.x > b.frame.origin.x) return NSOrderedDescending;
+        return NSOrderedSame;
+    }];
+
+    // 4. Position battery at far right (15pt margin from screen right edge)
+    CGFloat currentRight = W - 15.0;
+    if (batt) {
+        CGRect bf = batt.frame;
+        bf.origin.x = currentRight - bf.size.width;
+        batt.frame = bf;
+        batt.hidden = NO;
+        batt.alpha = 1.0;
+        currentRight = bf.origin.x - 5.0;
+    }
+
+    // 5. Position other trailing icons sequentially from right to left (wifi, cellular, etc.)
+    for (NSInteger i = (NSInteger)trailingIcons.count - 1; i >= 0; i--) {
+        UIView *icon = trailingIcons[i];
+        CGRect f = icon.frame;
+        f.origin.x = currentRight - f.size.width;
+        icon.frame = f;
+        icon.hidden = NO;
+        icon.alpha = 1.0;
+        currentRight = f.origin.x - 5.0;
     }
 }
 
@@ -726,8 +804,9 @@ static void L16DBG(NSString *fmt, ...) {
             %init(StatusBarSplitFix,
                 _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
                 _UIStatusBarVisualProvider_Split1242 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1242"),
+                _UIStatusBarVisualProvider_Split = NSClassFromString(@"_UIStatusBarVisualProvider_Split"),
                 _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"),
-                _UIStatusBar = NSClassFromString(@"_UIStatusBar"));
+                _UIStatusBarForegroundView = NSClassFromString(@"_UIStatusBarForegroundView"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
