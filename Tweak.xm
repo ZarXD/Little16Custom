@@ -772,7 +772,7 @@ static void L16DBG(NSString *fmt, ...) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
             %init(StatusBarSplitFix,
                 _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
-                _UIStatusBarVisualProvider_Split1242 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1242"),
+                _UIStatusBarVisualProvider_Split1170 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1170"),
                 _UIStatusBarVisualProvider_Split = NSClassFromString(@"_UIStatusBarVisualProvider_Split"),
                 _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
             %init(BannerFix,
