@@ -713,6 +713,10 @@ static void L16RemoveSplitProvider(void) {
 // Lock screen quick actions
 // ============================================================
 
+@interface CSCombinedListViewController : UIViewController
+- (UIEdgeInsets)_listViewDefaultContentInsets;
+@end
+
 @interface CSQuickActionsView : UIView
 - (UIEdgeInsets)_buttonOutsets;
 @property (nonatomic, strong) UIControl *flashlightButton;
@@ -723,6 +727,14 @@ static void L16RemoveSplitProvider(void) {
 @end
 
 %group QuickActions
+
+%hook CSCombinedListViewController
+- (UIEdgeInsets)_listViewDefaultContentInsets {
+    UIEdgeInsets insets = %orig;
+    insets.bottom += 90.0;
+    return insets;
+}
+%end
 
 %hook UIWindow
 - (UIEdgeInsets)safeAreaInsets {
@@ -897,7 +909,12 @@ static void L16DBG(NSString *fmt, ...) {
             if (roundedDockRecentsRadius > 0.5) %init(RoundedRecents);
         }
 
-        if (enableQuickActions) %init(QuickActions);
+        if (enableQuickActions) {
+            %init(QuickActions,
+                  CSCombinedListViewController = NSClassFromString(@"CSCombinedListViewController"),
+                  CSQuickActionsView = NSClassFromString(@"CSQuickActionsView"),
+                  CSQuickActionsViewController = NSClassFromString(@"CSQuickActionsViewController"));
+        }
         if (roundedAppSwitcherRadius > 0.5) %init(RoundedSwitcher);
 
         if (ccPosition == 0) {
