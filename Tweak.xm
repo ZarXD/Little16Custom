@@ -235,7 +235,7 @@ static void L16RemoveSplitProvider(void) {
 %hook _UIStatusBarVisualProvider_Split
 
 - (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:15.5];
+    return [UIFont boldSystemFontOfSize:15.0];
 }
 
 - (CGFloat)itemSpacing {
@@ -252,12 +252,31 @@ static void L16RemoveSplitProvider(void) {
 
 %end
 
+static void L16UnhideTimeViews(UIView *v) {
+    if (!v) return;
+    if ([v isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
+        UILabel *lbl = (UILabel *)v;
+        NSString *txt = lbl.text;
+        if (txt && [txt length] >= 3 && [txt length] <= 8 &&
+            ([txt containsString:@":"] || [txt containsString:@"."]) &&
+            [txt characterAtIndex:0] >= '0' && [txt characterAtIndex:0] <= '9') {
+            lbl.font = [UIFont boldSystemFontOfSize:15.0];
+            lbl.hidden = NO;
+            lbl.alpha = 1.0;
+        }
+    }
+    for (UIView *sub in v.subviews) {
+        L16UnhideTimeViews(sub);
+    }
+}
+
 %hook _UIStatusBarVisualProvider_FixedSplit
 
 - (NSDirectionalEdgeInsets)leadingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
-    insets.leading = 14.0;
-    L16DBG(@"leadingEdgeInsets: new.lead=%.1f (top=%.1f)", insets.leading, insets.top);
+    insets.leading += 40.0;
+    insets.trailing = -30.0;
+    L16DBG(@"leadingEdgeInsets: new.lead=%.1f trail=%.1f (top=%.1f)", insets.leading, insets.trailing, insets.top);
     return insets;
 }
 
@@ -286,7 +305,7 @@ static void L16RemoveSplitProvider(void) {
 - (void)setFont:(UIFont *)font {
     NSString *txt = ((UILabel *)self).text;
     if (txt && [self _l16IsTimeString:txt]) {
-        %orig([UIFont boldSystemFontOfSize:15.5]);
+        %orig([UIFont boldSystemFontOfSize:15.0]);
         return;
     }
     %orig(font);
@@ -305,8 +324,7 @@ static void L16RemoveSplitProvider(void) {
     UILabel *lbl = (UILabel *)self;
     NSString *txt = lbl.text;
     if ([self _l16IsTimeString:txt]) {
-        lbl.font = [UIFont boldSystemFontOfSize:15.5];
-        [lbl sizeToFit];
+        lbl.font = [UIFont boldSystemFontOfSize:15.0];
     }
 }
 
@@ -321,24 +339,8 @@ static void L16RemoveSplitProvider(void) {
     CGFloat W = view.bounds.size.width;
     if (W < 300.0) return;
 
-    // 1. Time view
-    for (UIView *sub in view.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
-            UILabel *lbl = (UILabel *)sub;
-            NSString *txt = lbl.text;
-            if (txt && [txt length] >= 3 && [txt length] <= 8 &&
-                ([txt containsString:@":"] || [txt containsString:@"."]) &&
-                [txt characterAtIndex:0] >= '0' && [txt characterAtIndex:0] <= '9') {
-                lbl.font = [UIFont boldSystemFontOfSize:15.5];
-                [lbl sizeToFit];
-                CGRect tf = lbl.frame;
-                tf.origin.x = 15.0;
-                lbl.frame = tf;
-                lbl.hidden = NO;
-                lbl.alpha = 1.0;
-            }
-        }
-    }
+    // 1. Time view: ensure font and visibility
+    L16UnhideTimeViews(view);
 
     // 2. Find battery view
     UIView *batt = nil;
