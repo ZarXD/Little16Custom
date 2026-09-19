@@ -317,11 +317,12 @@ static void L16RemoveSplitProvider(void) {
 - (void)layoutSubviews {
     %orig;
 
-    CGFloat W = self.bounds.size.width;
+    UIView *view = (UIView *)self;
+    CGFloat W = view.bounds.size.width;
     if (W < 300.0) return;
 
     // 1. Time view
-    for (UIView *sub in self.subviews) {
+    for (UIView *sub in view.subviews) {
         if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
             UILabel *lbl = (UILabel *)sub;
             NSString *txt = lbl.text;
@@ -341,7 +342,7 @@ static void L16RemoveSplitProvider(void) {
 
     // 2. Find battery view
     UIView *batt = nil;
-    for (UIView *sub in self.subviews) {
+    for (UIView *sub in view.subviews) {
         if ([NSStringFromClass([sub class]) containsString:@"Battery"]) {
             batt = sub;
             break;
@@ -350,7 +351,7 @@ static void L16RemoveSplitProvider(void) {
 
     // 3. Find other trailing icon views (wifi, cellular, etc.)
     NSMutableArray<UIView *> *trailingIcons = [NSMutableArray array];
-    for (UIView *sub in self.subviews) {
+    for (UIView *sub in view.subviews) {
         if (sub == batt) continue;
         BOOL isIconClass = [sub isKindOfClass:[UIImageView class]] ||
             [NSStringFromClass([sub class]) containsString:@"Image"] ||
