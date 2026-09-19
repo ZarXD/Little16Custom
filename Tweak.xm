@@ -142,7 +142,7 @@ static void L16DBG(NSString *fmt, ...);
 
 static NSString *const kUIKitDomain = @"com.apple.UIKit";
 static NSString *const kProviderKey = @"UIStatusBarVisualProviderClassName";
-static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1242";
+static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1170";
 
 static void L16EnsureSplitProvider(void) {
     CFStringRef current = (CFStringRef)CFPreferencesCopyAppValue(
@@ -165,6 +165,7 @@ static void L16EnsureSplitProvider(void) {
             (__bridge CFStringRef)kSplitProvider,
             (__bridge CFStringRef)kUIKitDomain);
         CFPreferencesAppSynchronize((__bridge CFStringRef)kUIKitDomain);
+        L16DBG(@"Writing UIStatusBarVisualProviderClassName = %@ into com.apple.UIKit", kSplitProvider);
     } else {
         L16DBG(@"Split provider already set, skipping write");
     }
@@ -275,7 +276,7 @@ static BOOL L16IsTimeString(NSString *str) {
 
 %end
 
-%hook _UIStatusBarVisualProvider_Split1242
+%hook _UIStatusBarVisualProvider_Split1170
 
 - (UIFont *)clockFont {
     return [UIFont boldSystemFontOfSize:16.0];
