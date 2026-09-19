@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -141,7 +142,7 @@ static void L16DBG(NSString *fmt, ...);
 
 static NSString *const kUIKitDomain = @"com.apple.UIKit";
 static NSString *const kProviderKey = @"UIStatusBarVisualProviderClassName";
-static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1170";
+static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1242";
 
 static void L16EnsureSplitProvider(void) {
     CFStringRef current = (CFStringRef)CFPreferencesCopyAppValue(
@@ -175,14 +176,16 @@ static void L16RemoveSplitProvider(void) {
         (__bridge CFStringRef)kUIKitDomain);
 
     if (current) {
-        if (CFGetTypeID(current) == CFStringGetTypeID() &&
-            CFStringCompare(current, (__bridge CFStringRef)kSplitProvider, 0) == kCFCompareEqualTo) {
-            L16DBG(@"Removing %@ from %@", kProviderKey, kUIKitDomain);
-            CFPreferencesSetAppValue(
-                (__bridge CFStringRef)kProviderKey,
-                NULL,
-                (__bridge CFStringRef)kUIKitDomain);
-            CFPreferencesAppSynchronize((__bridge CFStringRef)kUIKitDomain);
+        if (CFGetTypeID(current) == CFStringGetTypeID()) {
+            NSString *str = (__bridge NSString *)current;
+            if ([str hasPrefix:@"_UIStatusBarVisualProvider_Split"]) {
+                L16DBG(@"Removing %@ (%@) from %@", kProviderKey, str, kUIKitDomain);
+                CFPreferencesSetAppValue(
+                    (__bridge CFStringRef)kProviderKey,
+                    NULL,
+                    (__bridge CFStringRef)kUIKitDomain);
+                CFPreferencesAppSynchronize((__bridge CFStringRef)kUIKitDomain);
+            }
         }
         CFRelease(current);
     }
@@ -533,31 +536,32 @@ static void L16DBG(NSString *fmt, ...) {
             NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Split1170") != nil);
-        // Probe ALL known Split providers to find the right one for 414pt width
-        NSArray *probeNames = @[
-            @"_UIStatusBarVisualProvider_Split375",
-            @"_UIStatusBarVisualProvider_Split390",
-            @"_UIStatusBarVisualProvider_Split393",
-            @"_UIStatusBarVisualProvider_Split414",
-            @"_UIStatusBarVisualProvider_Split428",
-            @"_UIStatusBarVisualProvider_Split430",
-            @"_UIStatusBarVisualProvider_Split812",
-            @"_UIStatusBarVisualProvider_Split828",
-            @"_UIStatusBarVisualProvider_Split844",
-            @"_UIStatusBarVisualProvider_Split852",
-            @"_UIStatusBarVisualProvider_Split926",
-            @"_UIStatusBarVisualProvider_Split1080",
-            @"_UIStatusBarVisualProvider_Split1125",
-            @"_UIStatusBarVisualProvider_Split1242",
-            @"_UIStatusBarVisualProvider_Split1284",
-            @"_UIStatusBarVisualProvider_Split1290",
-            @"_UIStatusBarVisualProvider_RoundedPad",
-            @"_UIStatusBarVisualProvider_Phone",
-            @"_UIStatusBarVisualProvider_LegacyPhone",
-            @"_UIStatusBarVisualProvider_iOS",
-        ];
-        for (NSString *name in probeNames) {
-            if (NSClassFromString(name)) L16DBG(@"PROBE EXISTS: %@", name);
+        Class splitCls = NSClassFromString(kSplitProvider);
+        if (splitCls) {
+            L16DBG(@"Class %@ superclass %@", NSStringFromClass(splitCls), NSStringFromClass(class_getSuperclass(splitCls)));
+            Class metaCls = object_getClass((id)splitCls);
+            unsigned int mcount = 0;
+            Method *methods = class_copyMethodList(metaCls, &mcount);
+            for (unsigned int i = 0; i < mcount; i++) {
+                SEL sel = method_getName(methods[i]);
+                L16DBG(@"class method: +[%@ %s]", NSStringFromClass(splitCls), sel_getName(sel));
+            }
+            free(methods);
+
+            unsigned int icount = 0;
+            Method *imethods = class_copyMethodList(splitCls, &icount);
+            for (unsigned int i = 0; i < icount; i++) {
+                SEL sel = method_getName(imethods[i]);
+                const char *name = sel_getName(sel);
+                if (strstr(name, "margin") || strstr(name, "offset") || strstr(name, "padding") || 
+                    strstr(name, "cutout") || strstr(name, "layout") || strstr(name, "item") || 
+                    strstr(name, "edge") || strstr(name, "width") || strstr(name, "height") || 
+                    strstr(name, "notch") || strstr(name, "lead") || strstr(name, "trail") || 
+                    strstr(name, "time") || strstr(name, "clock") || strstr(name, "pill")) {
+                    L16DBG(@"instance method: -[%@ %s]", NSStringFromClass(splitCls), name);
+                }
+            }
+            free(imethods);
         }
         loadPreferences();
         %init(Diagnostics);
