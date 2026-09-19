@@ -318,21 +318,7 @@ static BOOL L16IsTimeString(NSString *str) {
 }
 
 - (CGFloat)itemSpacing {
-    return 4.0;
-}
-
-- (NSDirectionalEdgeInsets)leadingEdgeInsets {
-    NSDirectionalEdgeInsets insets = %orig;
-    insets.leading += 40.0;
-    L16DBG(@"leadingEdgeInsets: new.lead=%.1f (top=%.1f)", insets.leading, insets.top);
-    return insets;
-}
-
-- (NSDirectionalEdgeInsets)trailingEdgeInsets {
-    NSDirectionalEdgeInsets insets = %orig;
-    insets.trailing = -38.0; // Wide container so Cellular + WiFi + Battery all fit
-    L16DBG(@"trailingEdgeInsets: new.trail=%.1f lead=%.1f (top=%.1f)", insets.trailing, insets.leading, insets.top);
-    return insets;
+    return 6.0;
 }
 
 %end
