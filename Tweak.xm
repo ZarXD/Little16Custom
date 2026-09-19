@@ -187,36 +187,38 @@ static void L16LogItemFrames(UIView *root, NSString *tag) {
 }
 
 static void L16LayoutSplit(UIView *root) {
-    if (root.bounds.size.width <= 0) return;
+    CGFloat W = root.bounds.size.width;
+    if (W <= 0) return;
 
-    // NOTE: wifi view isn't created until a network is connected; the
-    // hook re-runs on every layout so it catches items as they appear.
     UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
     UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
     UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
-    if (!cell && !wifi) return;
 
-    // Battery is already right-aligned on iOS16 home-button; tuck
-    // wifi + cellular just to the left of it (iPhone X right "ear").
-    CGFloat xEdge;
-    if (batt && batt.superview) {
-        CGRect bf = [batt.superview convertRect:batt.frame toView:root];
-        xEdge = bf.origin.x - 4.0;
-    } else {
-        xEdge = root.bounds.size.width - 6.0;
-    }
-
+    // Right "ear": battery far right, wifi left of it, cellular left of wifi.
+    CGFloat x = W - 6.0;
     CGFloat gap = 4.0;
-    L16PlaceXRight(&xEdge, wifi, root, gap);
-    L16PlaceXRight(&xEdge, cell, root, gap);
+    L16PlaceXRight(&x, batt, root, gap);
+    L16PlaceXRight(&x, wifi, root, gap);
+    L16PlaceXRight(&x, cell, root, gap);
+
+    // Everything else stacks from the far left (time + any extra items),
+    // so new items can't pile up at (0,0) since %orig is skipped here.
+    CGFloat lx = 7.0;
+    NSArray *subs = [root.subviews copy];
+    for (UIView *v in subs) {
+        if (v == batt || v == wifi || v == cell) continue;
+        if (!v.superview) continue;
+        CGRect fr = [v.superview convertRect:v.frame toView:root];
+        fr.origin.x = lx;
+        v.frame = [root convertRect:fr toView:v.superview];
+        lx += fr.size.width;
+    }
 }
 
 %group StatusBarModern
 
 %hook _UIStatusBarForegroundView
 - (void)layoutSubviews {
-    %orig;
-
     static BOOL dumped = NO;
     if (!dumped) {
         dumped = YES;
