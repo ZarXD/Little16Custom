@@ -224,10 +224,6 @@ static void L16RemoveSplitProvider(void) {
 
 @interface _UIStatusBarStringView : UILabel
 - (BOOL)_l16IsTimeString:(NSString *)txt;
-- (void)_l16ApplyTimeFontIfNeeded;
-@end
-
-@interface _UIStatusBarForegroundView : UIView
 @end
 
 %group StatusBarSplitFix
@@ -252,31 +248,12 @@ static void L16RemoveSplitProvider(void) {
 
 %end
 
-static void L16UnhideTimeViews(UIView *v) {
-    if (!v) return;
-    if ([v isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
-        UILabel *lbl = (UILabel *)v;
-        NSString *txt = lbl.text;
-        if (txt && [txt length] >= 3 && [txt length] <= 8 &&
-            ([txt containsString:@":"] || [txt containsString:@"."]) &&
-            [txt characterAtIndex:0] >= '0' && [txt characterAtIndex:0] <= '9') {
-            lbl.font = [UIFont boldSystemFontOfSize:15.0];
-            lbl.hidden = NO;
-            lbl.alpha = 1.0;
-        }
-    }
-    for (UIView *sub in v.subviews) {
-        L16UnhideTimeViews(sub);
-    }
-}
-
 %hook _UIStatusBarVisualProvider_FixedSplit
 
 - (NSDirectionalEdgeInsets)leadingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
     insets.leading += 40.0;
-    insets.trailing = -30.0;
-    L16DBG(@"leadingEdgeInsets: new.lead=%.1f trail=%.1f (top=%.1f)", insets.leading, insets.trailing, insets.top);
+    L16DBG(@"leadingEdgeInsets: new.lead=%.1f (top=%.1f)", insets.leading, insets.top);
     return insets;
 }
 
@@ -292,16 +269,6 @@ static void L16UnhideTimeViews(UIView *v) {
 
 %hook _UIStatusBarStringView
 
-- (void)didMoveToWindow {
-    %orig;
-    [self _l16ApplyTimeFontIfNeeded];
-}
-
-- (void)setText:(NSString *)text {
-    %orig(text);
-    [self _l16ApplyTimeFontIfNeeded];
-}
-
 - (void)setFont:(UIFont *)font {
     NSString *txt = ((UILabel *)self).text;
     if (txt && [self _l16IsTimeString:txt]) {
@@ -311,102 +278,19 @@ static void L16UnhideTimeViews(UIView *v) {
     %orig(font);
 }
 
+- (void)setText:(NSString *)text {
+    %orig(text);
+    if (text && [self _l16IsTimeString:text]) {
+        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.0];
+    }
+}
+
 %new
 - (BOOL)_l16IsTimeString:(NSString *)txt {
     if (!txt || txt.length < 3 || txt.length > 8) return NO;
     if (!([txt containsString:@":"] || [txt containsString:@"."])) return NO;
     unichar first = [txt characterAtIndex:0];
     return (first >= '0' && first <= '9');
-}
-
-%new
-- (void)_l16ApplyTimeFontIfNeeded {
-    UILabel *lbl = (UILabel *)self;
-    NSString *txt = lbl.text;
-    if ([self _l16IsTimeString:txt]) {
-        lbl.font = [UIFont boldSystemFontOfSize:15.0];
-    }
-}
-
-%end
-
-%hook _UIStatusBarForegroundView
-
-- (void)layoutSubviews {
-    %orig;
-
-    UIView *view = (UIView *)self;
-    CGFloat W = view.bounds.size.width;
-    if (W < 300.0) return;
-
-    // 1. Time view: ensure font and visibility
-    L16UnhideTimeViews(view);
-
-    // 2. Find battery view
-    UIView *batt = nil;
-    for (UIView *sub in view.subviews) {
-        if ([NSStringFromClass([sub class]) containsString:@"Battery"]) {
-            batt = sub;
-            break;
-        }
-    }
-
-    // 3. Find other trailing icon views (wifi, cellular, etc.)
-    NSMutableArray<UIView *> *trailingIcons = [NSMutableArray array];
-    for (UIView *sub in view.subviews) {
-        if (sub == batt) continue;
-        BOOL isIconClass = [sub isKindOfClass:[UIImageView class]] ||
-            [NSStringFromClass([sub class]) containsString:@"Image"] ||
-            [NSStringFromClass([sub class]) containsString:@"Signal"] ||
-            [NSStringFromClass([sub class]) containsString:@"Wifi"] ||
-            [NSStringFromClass([sub class]) containsString:@"Cellular"];
-        if (isIconClass) {
-            BOOL hasContent = NO;
-            if ([sub respondsToSelector:@selector(image)]) {
-                UIImage *img = [(UIImageView *)sub image];
-                if (img != nil) hasContent = YES;
-            } else if ([NSStringFromClass([sub class]) containsString:@"Signal"] ||
-                       [NSStringFromClass([sub class]) containsString:@"Cellular"] ||
-                       [NSStringFromClass([sub class]) containsString:@"Wifi"]) {
-                hasContent = YES;
-            }
-            if (hasContent && sub.frame.origin.x > W * 0.4) {
-                if (sub.frame.size.width == 0) [sub sizeToFit];
-                if (sub.frame.size.width > 0) {
-                    [trailingIcons addObject:sub];
-                }
-            }
-        }
-    }
-
-    // Sort trailing icons from left to right by their current X position
-    [trailingIcons sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
-        if (a.frame.origin.x < b.frame.origin.x) return NSOrderedAscending;
-        if (a.frame.origin.x > b.frame.origin.x) return NSOrderedDescending;
-        return NSOrderedSame;
-    }];
-
-    // 4. Position battery at far right (15pt margin from screen right edge)
-    CGFloat currentRight = W - 15.0;
-    if (batt) {
-        CGRect bf = batt.frame;
-        bf.origin.x = currentRight - bf.size.width;
-        batt.frame = bf;
-        batt.hidden = NO;
-        batt.alpha = 1.0;
-        currentRight = bf.origin.x - 5.0;
-    }
-
-    // 5. Position other trailing icons sequentially from right to left (wifi, cellular, etc.)
-    for (NSInteger i = (NSInteger)trailingIcons.count - 1; i >= 0; i--) {
-        UIView *icon = trailingIcons[i];
-        CGRect f = icon.frame;
-        f.origin.x = currentRight - f.size.width;
-        icon.frame = f;
-        icon.hidden = NO;
-        icon.alpha = 1.0;
-        currentRight = f.origin.x - 5.0;
-    }
 }
 
 %end
@@ -808,8 +692,7 @@ static void L16DBG(NSString *fmt, ...) {
                 _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
                 _UIStatusBarVisualProvider_Split1242 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1242"),
                 _UIStatusBarVisualProvider_Split = NSClassFromString(@"_UIStatusBarVisualProvider_Split"),
-                _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"),
-                _UIStatusBarForegroundView = NSClassFromString(@"_UIStatusBarForegroundView"));
+                _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
