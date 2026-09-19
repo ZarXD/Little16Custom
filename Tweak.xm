@@ -108,6 +108,174 @@ static void RoundIconsInView(UIView *view, CGFloat radius) {
 
 static void L16DBG(NSString *fmt, ...);
 
+@interface _UIStatusBar : UIView
+@end
+
+@interface _UIStatusBarItem : NSObject
+@property (nonatomic, readonly, weak) _UIStatusBar *statusBar;
+@end
+
+@interface _UIStatusBarIndicatorItem : _UIStatusBarItem
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2;
+@end
+
+@interface _UIStatusBarDateItem : _UIStatusBarItem
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2;
+@end
+
+@interface _UIStatusBarShortDateItem : _UIStatusBarItem
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2;
+@end
+
+@interface _UIStatusBarBatteryItem : _UIStatusBarItem
+@property (nonatomic, assign) BOOL showsPercentage;
+@end
+
+@interface _UIStaticBatteryView : UIView
+- (void)setShowsPercentage:(BOOL)arg1;
+- (BOOL)showsPercentage;
+@end
+
+@interface _UIStatusBarBatteryView : _UIStaticBatteryView
+@end
+
+@interface _UIStatusBarStringView : UILabel
+@end
+
+@interface _UIStatusBarVisualProvider_iOS : NSObject
+@property (nonatomic, weak) _UIStatusBar *statusBar;
+- (UIFont *)clockFont;
+@end
+
+static BOOL L16IsControlCenterView(UIView *view) {
+    if (!view) return NO;
+    UIWindow *win = view.window;
+    if (win) {
+        NSString *wName = NSStringFromClass([win class]);
+        if ([wName rangeOfString:@"ControlCenter" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+            [wName rangeOfString:@"CCUI" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+            return YES;
+        }
+    }
+    UIView *curr = view;
+    while (curr) {
+        NSString *cName = NSStringFromClass([curr class]);
+        if ([cName rangeOfString:@"CCUI" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+            [cName rangeOfString:@"ControlCenter" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+            return YES;
+        }
+        curr = curr.superview;
+    }
+    return NO;
+}
+
+%group StatusBarPadCustom
+
+%hook _UIStatusBarVisualProvider_iOS
+- (UIFont *)clockFont {
+    if (statusBarStyle == 1 || statusBarStyle == 3) {
+        return [UIFont systemFontOfSize:14.5 weight:UIFontWeightBold];
+    }
+    return %orig;
+}
+%end
+
+%hook _UIStatusBarStringView
+
+- (void)setFont:(UIFont *)font {
+    if ((statusBarStyle == 1 || statusBarStyle == 3) && font) {
+        if (font.pointSize >= 13.0 && font.pointSize <= 16.0) {
+            font = [UIFont systemFontOfSize:font.pointSize weight:UIFontWeightBold];
+        }
+    }
+    %orig(font);
+}
+
+- (void)setText:(NSString *)text {
+    if ((statusBarStyle == 1 || statusBarStyle == 3) && text.length > 0) {
+        if ([text hasSuffix:@"%"] && text.length <= 5) {
+            self.hidden = YES;
+            self.alpha = 0.0;
+            %orig(@"");
+            return;
+        }
+        static NSArray *dateKeywords = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            dateKeywords = [@[@"Jan", @"Feb", @"Mar", @"Apr", @"May", @"Jun", 
+                              @"Jul", @"Aug", @"Sep", @"Oct", @"Nov", @"Dec",
+                              @"Mei", @"Agu", @"Okt", @"Des",
+                              @"Mon", @"Tue", @"Wed", @"Thu", @"Fri", @"Sat", @"Sun",
+                              @"Sen", @"Sel", @"Rab", @"Kam", @"Jum", @"Sab", @"Min"] retain];
+        });
+        for (NSString *kw in dateKeywords) {
+            if ([text rangeOfString:kw options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                self.hidden = YES;
+                self.alpha = 0.0;
+                %orig(@"");
+                return;
+            }
+        }
+    }
+    %orig(text);
+}
+
+%end
+
+%hook _UIStatusBarDateItem
++ (BOOL)isEnabled { return NO; }
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 { return NO; }
+%end
+
+%hook _UIStatusBarShortDateItem
++ (BOOL)isEnabled { return NO; }
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 { return NO; }
+%end
+
+%hook _UIStatusBarBatteryItem
+- (void)setShowsPercentage:(BOOL)arg1 {
+    %orig(NO);
+}
+- (BOOL)showsPercentage {
+    return NO;
+}
+%end
+
+%hook _UIStatusBarBatteryView
+- (void)setShowsPercentage:(BOOL)arg1 {
+    %orig(YES);
+}
+- (BOOL)showsPercentage {
+    return YES;
+}
+%end
+
+%hook _UIStaticBatteryView
+- (void)setShowsPercentage:(BOOL)arg1 {
+    %orig(YES);
+}
+- (BOOL)showsPercentage {
+    return YES;
+}
+%end
+
+%hook _UIStatusBarIndicatorItem
+
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 {
+    if ([self isKindOfClass:NSClassFromString(@"_UIStatusBarIndicatorLocationItem")]) {
+        return %orig;
+    }
+    _UIStatusBar *sb = [self statusBar];
+    if (L16IsControlCenterView((UIView *)sb)) {
+        return %orig;
+    }
+    return NO;
+}
+
+%end
+
+%end
+
 %group StatusBarPad
 
 %hook _UIStatusBarVisualProvider_iOS
@@ -235,8 +403,7 @@ static void L16RemoveSplitProvider(void) {
 - (CGFloat)itemSpacing;
 @end
 
-@interface _UIStatusBarStringView : UILabel
-@end
+// _UIStatusBarStringView forward-declared above
 
 
 
@@ -671,6 +838,15 @@ static void L16DBG(NSString *fmt, ...) {
 
         if (statusBarStyle == 1) {
             %init(StatusBarPad);
+            %init(StatusBarPadCustom,
+                  _UIStatusBarVisualProvider_iOS = NSClassFromString(@"_UIStatusBarVisualProvider_iOS"),
+                  _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"),
+                  _UIStatusBarDateItem = NSClassFromString(@"_UIStatusBarDateItem"),
+                  _UIStatusBarShortDateItem = NSClassFromString(@"_UIStatusBarShortDateItem"),
+                  _UIStatusBarBatteryItem = NSClassFromString(@"_UIStatusBarBatteryItem"),
+                  _UIStatusBarBatteryView = NSClassFromString(@"_UIStatusBarBatteryView"),
+                  _UIStaticBatteryView = NSClassFromString(@"_UIStaticBatteryView"),
+                  _UIStatusBarIndicatorItem = NSClassFromString(@"_UIStatusBarIndicatorItem"));
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
@@ -681,6 +857,15 @@ static void L16DBG(NSString *fmt, ...) {
                 SBBannerWindow = NSClassFromString(@"SBBannerWindow"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
+            %init(StatusBarPadCustom,
+                  _UIStatusBarVisualProvider_iOS = NSClassFromString(@"_UIStatusBarVisualProvider_iOS"),
+                  _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"),
+                  _UIStatusBarDateItem = NSClassFromString(@"_UIStatusBarDateItem"),
+                  _UIStatusBarShortDateItem = NSClassFromString(@"_UIStatusBarShortDateItem"),
+                  _UIStatusBarBatteryItem = NSClassFromString(@"_UIStatusBarBatteryItem"),
+                  _UIStatusBarBatteryView = NSClassFromString(@"_UIStatusBarBatteryView"),
+                  _UIStaticBatteryView = NSClassFromString(@"_UIStaticBatteryView"),
+                  _UIStatusBarIndicatorItem = NSClassFromString(@"_UIStatusBarIndicatorItem"));
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else {
             L16RemoveSplitProvider();   // style 0 (Legacy): clean up
