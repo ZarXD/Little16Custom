@@ -166,10 +166,11 @@ static void L16LogItemFrames(UIView *root, NSString *tag) {
     NSMutableString *s = [NSMutableString string];
     NSArray *classes = @[
         @"_UIStatusBarCellularSignalView", @"_UIStatusBarWifiSignalView",
-        @"_UIStaticBatteryView", @"_UIStatusBarStringView"
+        @"_UIStaticBatteryView", @"_UIStatusBarStringView",
+        @"_UIStatusBarImageView"
     ];
     for (NSString *klass in classes) {
-        UIView *v = L16FindClassInView(root, klass, 8);
+        UIView *v = L16FindClassInView(root, klass, 0);
         if (v && v.superview) {
             CGRect fr = [v.superview convertRect:v.frame toView:root];
             [s appendFormat:@"%@=%.0f,%.0f %.0fx%.0f | ", klass,
@@ -197,8 +198,18 @@ static void L16LayoutSplit(UIView *root) {
     sL16Container.frame = CGRectMake(0, 0, W, 20);
 
     UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
-    UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
     UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
+    // WiFi is rendered as a plain _UIStatusBarImageView on home-button iPhones.
+    UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
+    if (!wifi) {
+        for (UIView *sub in root.subviews) {
+            if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarImageView")]
+                && sub != batt && sub.frame.size.width > 0) {
+                wifi = sub;
+                break;
+            }
+        }
+    }
     if (!wifi && !cell) return;
 
     CGFloat rightX = W - 6.0;
