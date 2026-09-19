@@ -173,7 +173,7 @@ static BOOL L16IsControlCenterView(UIView *view) {
 
 %hook _UIStatusBarVisualProvider_iOS
 - (UIFont *)clockFont {
-    if (statusBarStyle == 1 || statusBarStyle == 3) {
+    if (statusBarStyle == 3) {
         return [UIFont systemFontOfSize:14.5 weight:UIFontWeightBold];
     }
     return %orig;
@@ -183,7 +183,7 @@ static BOOL L16IsControlCenterView(UIView *view) {
 %hook _UIStatusBarStringView
 
 - (void)setFont:(UIFont *)font {
-    if ((statusBarStyle == 1 || statusBarStyle == 3) && font) {
+    if (statusBarStyle == 3 && font) {
         if (font.pointSize >= 13.0 && font.pointSize <= 16.0) {
             font = [UIFont systemFontOfSize:font.pointSize weight:UIFontWeightBold];
         }
@@ -192,7 +192,7 @@ static BOOL L16IsControlCenterView(UIView *view) {
 }
 
 - (void)setText:(NSString *)text {
-    if ((statusBarStyle == 1 || statusBarStyle == 3) && text.length > 0) {
+    if (statusBarStyle == 3 && text.length > 0) {
         if ([text hasSuffix:@"%"] && text.length <= 5) {
             self.hidden = YES;
             self.alpha = 0.0;
@@ -223,45 +223,73 @@ static BOOL L16IsControlCenterView(UIView *view) {
 %end
 
 %hook _UIStatusBarDateItem
-+ (BOOL)isEnabled { return NO; }
-- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 { return NO; }
++ (BOOL)isEnabled {
+    if (statusBarStyle == 3) return NO;
+    return %orig;
+}
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 {
+    if (statusBarStyle == 3) return NO;
+    return %orig;
+}
 %end
 
 %hook _UIStatusBarShortDateItem
-+ (BOOL)isEnabled { return NO; }
-- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 { return NO; }
++ (BOOL)isEnabled {
+    if (statusBarStyle == 3) return NO;
+    return %orig;
+}
+- (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 {
+    if (statusBarStyle == 3) return NO;
+    return %orig;
+}
 %end
 
 %hook _UIStatusBarBatteryItem
 - (void)setShowsPercentage:(BOOL)arg1 {
-    %orig(NO);
+    if (statusBarStyle == 3) {
+        %orig(NO);
+        return;
+    }
+    %orig(arg1);
 }
 - (BOOL)showsPercentage {
-    return NO;
+    if (statusBarStyle == 3) return NO;
+    return %orig;
 }
 %end
 
 %hook _UIStatusBarBatteryView
 - (void)setShowsPercentage:(BOOL)arg1 {
-    %orig(YES);
+    if (statusBarStyle == 3) {
+        %orig(YES);
+        return;
+    }
+    %orig(arg1);
 }
 - (BOOL)showsPercentage {
-    return YES;
+    if (statusBarStyle == 3) return YES;
+    return %orig;
 }
 %end
 
 %hook _UIStaticBatteryView
 - (void)setShowsPercentage:(BOOL)arg1 {
-    %orig(YES);
+    if (statusBarStyle == 3) {
+        %orig(YES);
+        return;
+    }
+    %orig(arg1);
 }
 - (BOOL)showsPercentage {
-    return YES;
+    if (statusBarStyle == 3) return YES;
+    return %orig;
 }
 %end
 
 %hook _UIStatusBarIndicatorItem
 
 - (BOOL)canEnableDisplayItem:(id)arg1 fromData:(id)arg2 {
+    if (statusBarStyle != 3) return %orig;
     if ([self isKindOfClass:NSClassFromString(@"_UIStatusBarIndicatorLocationItem")]) {
         return %orig;
     }
@@ -838,15 +866,6 @@ static void L16DBG(NSString *fmt, ...) {
 
         if (statusBarStyle == 1) {
             %init(StatusBarPad);
-            %init(StatusBarPadCustom,
-                  _UIStatusBarVisualProvider_iOS = NSClassFromString(@"_UIStatusBarVisualProvider_iOS"),
-                  _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"),
-                  _UIStatusBarDateItem = NSClassFromString(@"_UIStatusBarDateItem"),
-                  _UIStatusBarShortDateItem = NSClassFromString(@"_UIStatusBarShortDateItem"),
-                  _UIStatusBarBatteryItem = NSClassFromString(@"_UIStatusBarBatteryItem"),
-                  _UIStatusBarBatteryView = NSClassFromString(@"_UIStatusBarBatteryView"),
-                  _UIStaticBatteryView = NSClassFromString(@"_UIStaticBatteryView"),
-                  _UIStatusBarIndicatorItem = NSClassFromString(@"_UIStatusBarIndicatorItem"));
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
