@@ -683,7 +683,9 @@ static void L16DBG(NSString *fmt, ...) {
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
-
+            %init(StatusBarSplitFix, 
+                  _UIStatusBarVisualProvider_Split1170 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1170"),
+                  _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
             %init(BannerFix,
                 SBBannerWindow = NSClassFromString(@"SBBannerWindow"));
         } else if (statusBarStyle == 3) {
