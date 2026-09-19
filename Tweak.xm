@@ -269,11 +269,13 @@ static void L16RemoveSplitProvider(void) {
 
 - (void)didMoveToWindow {
     %orig;
-    if (self.text.length >= 4 && self.text.length <= 8) {
-        if ([self.text containsString:@":"] || [self.text containsString:@"."]) {
-            unichar first = [self.text characterAtIndex:0];
+    UILabel *lbl = (UILabel *)self;
+    NSString *txt = lbl.text;
+    if (txt.length >= 4 && txt.length <= 8) {
+        if ([txt containsString:@":"] || [txt containsString:@"."]) {
+            unichar first = [txt characterAtIndex:0];
             if (first >= '0' && first <= '9') {
-                self.font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
+                lbl.font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
             }
         }
     }
@@ -285,7 +287,7 @@ static void L16RemoveSplitProvider(void) {
         if ([text containsString:@":"] || [text containsString:@"."]) {
             unichar first = [text characterAtIndex:0];
             if (first >= '0' && first <= '9') {
-                self.font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
+                ((UILabel *)self).font = [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
             }
         }
     }
