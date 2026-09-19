@@ -388,6 +388,33 @@ static BOOL L16IsTimeString(NSString *str) {
 %end
 
 // ============================================================
+// Banner notification fix: SBBannerWindow safeAreaInsets
+// When Split status bar is active (style 2), the status bar
+// is ~44pt tall but SBBannerWindow still assumes 20pt.
+// Fix: override safeAreaInsets.top for SBBannerWindow so
+// banners appear below the actual status bar.
+// ============================================================
+
+@interface SBBannerWindow : UIWindow
+@end
+
+%group BannerFix
+
+%hook SBBannerWindow
+- (UIEdgeInsets)safeAreaInsets {
+    UIEdgeInsets insets = %orig;
+    // Only bump if the current top is the legacy 20pt value;
+    // the Split status bar on iPhone 8 Plus is ~44pt.
+    if (insets.top <= 20.5) {
+        insets.top = 44.0;
+    }
+    return insets;
+}
+%end
+
+%end
+
+// ============================================================
 // Dock (iPad / floating)
 // ============================================================
 
@@ -761,6 +788,8 @@ static void L16DBG(NSString *fmt, ...) {
                 _UIStatusBarVisualProvider_Split1242 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1242"),
                 _UIStatusBarVisualProvider_Split = NSClassFromString(@"_UIStatusBarVisualProvider_Split"),
                 _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
+            %init(BannerFix,
+                SBBannerWindow = NSClassFromString(@"SBBannerWindow"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
