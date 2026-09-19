@@ -52,22 +52,6 @@ make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide     # roothide
 
 The `.deb` file(s) will be in `./packages/`.
 
-## Website & Sileo repo
-
-Landing page + Sileo repository live in [`docs/`](docs/) (deployed on GitHub Pages).
-
-- **Source (add di Sileo):** `https://zarxd.github.io/Little16Custom`
-- **Repo Files** (`Packages`, `Packages.gz`, `Release`, `products/*.deb`) di-generate saat workflow **Deploy Pages** jalan (tiap push), atau manual dengan:
-
-```bash
-bash scripts/makerepo.sh   # butuh gh + dpkg-dev
-```
-
-Setup GitHub Pages sekali:
-1. Repo Settings → Pages → Source **GitHub Actions**.
-2. Push apa pun ke `master` → workflow `Deploy Pages` membuild debs, generate `Packages`/`Release`, lalu deploy situs + repo.
-3. Di Sileo: **Sources → Add** → `zarxd.github.io/Little16Custom`.
-
 ## Installing
 
 Pick the `.deb` that matches your jailbreak, copy it to your device (AirDrop, scp, Sileo local install, Filza, etc.), open in Sileo/Filza → Install, then respring.

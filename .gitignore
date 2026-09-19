@@ -2,7 +2,3 @@
 packages/
 *.deb
 _opt/
-
-# ...but keep Sileo repo payloads for GitHub Pages
-!docs/packages/
-!docs/packages/*.deb
