@@ -105,7 +105,7 @@ static void RoundIconsInView(UIView *view, CGFloat radius) {
 // Status Bar
 // ============================================================
 
-void L16DBG(NSString *fmt, ...);
+static void L16DBG(NSString *fmt, ...);
 
 %group StatusBarPad
 
