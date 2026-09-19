@@ -129,196 +129,64 @@ static void L16DBG(NSString *fmt, ...);
 %end
 
 // ============================================================
-// iPhone X style: white "split" status bar look — time stays on
-// the LEFT, all other indicators (cellular, wifi, battery) are
-// pushed to the RIGHT. iOS16 removed the split providers, so we
-// do view-layout instead of provider swap (no rdar red bar).
+// iPhone X style: split status bar look via UIKit preference
+// override (RdarFix approach from bvnrepo.xyz).
+//
+// Writes UIStatusBarVisualProviderClassName =
+// _UIStatusBarVisualProvider_Split1170 into com.apple.UIKit
+// preferences. This tells UIKit to use a split provider
+// (time left, indicators right) WITHOUT changing the screen
+// resolution → no rdar:45025538 red bar.
 // ============================================================
 
-@interface _UIStatusBar : UIView
-@end
+static NSString *const kUIKitDomain = @"com.apple.UIKit";
+static NSString *const kProviderKey = @"UIStatusBarVisualProviderClassName";
+static NSString *const kSplitProvider = @"_UIStatusBarVisualProvider_Split1170";
 
-@interface _UIStatusBarForegroundView : UIView
-@end
+static void L16EnsureSplitProvider(void) {
+    CFStringRef current = (CFStringRef)CFPreferencesCopyAppValue(
+        (__bridge CFStringRef)kProviderKey,
+        (__bridge CFStringRef)kUIKitDomain);
 
-@interface _UIStaticBatteryView : UIView
-- (void)setShowsPercentage:(BOOL)arg1;
-@end
-
-static UIView *L16FindClassInView(UIView *root, NSString *klass, int depth) {
-    if (!root || depth > 8) return nil;
-    if ([root isKindOfClass:NSClassFromString(klass)]) return root;
-    for (UIView *sub in root.subviews) {
-        UIView *found = L16FindClassInView(sub, klass, depth + 1);
-        if (found) return found;
-    }
-    return nil;
-}
-
-
-static int L16SplitLogCount = 0;
-static void L16LogItemFrames(UIView *root, NSString *tag) {
-    if (L16SplitLogCount >= 30) return;
-    L16SplitLogCount++;
-    NSMutableString *s = [NSMutableString string];
-    NSArray *classes = @[
-        @"_UIStatusBarCellularSignalView", @"_UIStatusBarWifiSignalView",
-        @"_UIStaticBatteryView", @"_UIStatusBarStringView",
-        @"_UIStatusBarImageView"
-    ];
-    for (NSString *klass in classes) {
-        UIView *v = L16FindClassInView(root, klass, 0);
-        if (v && v.superview) {
-            CGRect fr = [v.superview convertRect:v.frame toView:root];
-            [s appendFormat:@"%@=%.0f,%.0f %.0fx%.0f | ", klass,
-                fr.origin.x, fr.origin.y, fr.size.width, fr.size.height];
+    BOOL needsWrite = YES;
+    if (current) {
+        if (CFGetTypeID(current) == CFStringGetTypeID() &&
+            CFStringCompare(current, (__bridge CFStringRef)kSplitProvider, 0) == kCFCompareEqualTo) {
+            needsWrite = NO;
         }
-    }
-    L16DBG(@"FG[%@] %@", tag, s);
-}
-
-static UIView *L16FindTimeView(UIView *root, int depth) {
-    if (!root || depth > 6) return nil;
-    if ([root respondsToSelector:@selector(text)]) {
-        NSString *txt = [(id)root text];
-        if (txt && [txt rangeOfString:@":"].location != NSNotFound) return root;
-    }
-    for (UIView *sub in root.subviews) {
-        UIView *found = L16FindTimeView(sub, depth + 1);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static void L16LayoutSplit(UIView *root) {
-    CGFloat W = root.bounds.size.width;
-    CGFloat H = root.bounds.size.height;
-    if (W <= 0 || H <= 0) return;
-
-    // 1. Time (Clock) -> Left ear (x = 20.0)
-    UIView *timeView = L16FindTimeView(root, 0);
-    if (timeView && timeView.superview) {
-        CGRect tf = [timeView.superview convertRect:timeView.frame toView:root];
-        tf.origin.x = 20.0;
-        tf.origin.y = (H - tf.size.height) / 2.0;
-        timeView.frame = [root convertRect:tf toView:timeView.superview];
-        timeView.hidden = NO;
+        CFRelease(current);
     }
 
-    // 2. Hide carrier name / extra string views (iPhone X only shows time in status bar)
-    for (UIView *sub in root.subviews) {
-        if (sub != timeView && [sub respondsToSelector:@selector(text)]) {
-            sub.hidden = YES;
-        }
-    }
-
-    // 3. Battery -> Far right (14.0 pt margin from right edge)
-    UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
-    if (!batt) batt = L16FindClassInView(root, @"_UIStatusBarBatteryView", 0);
-    if (batt && [batt respondsToSelector:@selector(setShowsPercentage:)]) {
-        @try { [(_UIStaticBatteryView *)batt setShowsPercentage:YES]; } @catch (id ex) {}
-    }
-
-    CGFloat rightEdge = W - 14.0;
-    if (batt && batt.superview) {
-        CGRect bf = [batt.superview convertRect:batt.frame toView:root];
-        bf.origin.x = rightEdge - bf.size.width;
-        bf.origin.y = (H - bf.size.height) / 2.0;
-        batt.frame = [root convertRect:bf toView:batt.superview];
-        batt.hidden = NO;
-        rightEdge = bf.origin.x - 4.0;
-    }
-
-    // 4. Wi-Fi Signal
-    UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
-    if (!wifi) {
-        for (UIView *sub in root.subviews) {
-            if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarImageView")] || [sub isKindOfClass:[UIImageView class]]) {
-                UIImageView *iv = (UIImageView *)sub;
-                NSString *desc = [[iv image] description] ?: @"";
-                if ([desc rangeOfString:@"wifi" options:NSCaseInsensitiveSearch].location != NSNotFound) {
-                    wifi = sub;
-                    break;
-                }
-            }
-        }
-    }
-    if (wifi && wifi.superview && wifi.frame.size.width > 0 && !wifi.hidden) {
-        CGRect wf = [wifi.superview convertRect:wifi.frame toView:root];
-        wf.origin.x = rightEdge - wf.size.width;
-        wf.origin.y = (H - wf.size.height) / 2.0;
-        wifi.frame = [root convertRect:wf toView:wifi.superview];
-        wifi.hidden = NO;
-        rightEdge = wf.origin.x - 4.0;
-    }
-
-    // 5. Cellular Signal
-    UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
-    if (cell && cell.superview && cell.frame.size.width > 0 && !cell.hidden) {
-        CGRect cf = [cell.superview convertRect:cell.frame toView:root];
-        cf.origin.x = rightEdge - cf.size.width;
-        cf.origin.y = (H - cf.size.height) / 2.0;
-        cell.frame = [root convertRect:cf toView:cell.superview];
-        cell.hidden = NO;
-        rightEdge = cf.origin.x - 4.0;
-    }
-
-    // 6. Secondary icons (DND/Focus moon, Location, Alarm, VPN)
-    for (UIView *sub in root.subviews) {
-        if (sub == batt || sub == wifi || sub == cell || sub == timeView) continue;
-        if ([sub isKindOfClass:NSClassFromString(@"_UIStatusBarImageView")] || [sub isKindOfClass:[UIImageView class]]) {
-            UIImageView *iv = (UIImageView *)sub;
-            NSString *desc = [[iv image] description] ?: @"";
-            if ([desc rangeOfString:@"moon" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-                [desc rangeOfString:@"focus" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-                [desc rangeOfString:@"location" options:NSCaseInsensitiveSearch].location != NSNotFound) {
-                // Sits right after the time in the left ear
-                if (timeView && timeView.superview) {
-                    CGRect tf = [timeView.superview convertRect:timeView.frame toView:root];
-                    CGRect mf = [sub.superview convertRect:sub.frame toView:root];
-                    mf.origin.x = tf.origin.x + tf.size.width + 4.0;
-                    mf.origin.y = (H - mf.size.height) / 2.0;
-                    sub.frame = [root convertRect:mf toView:sub.superview];
-                    sub.hidden = NO;
-                }
-            } else if (sub.frame.size.width > 0 && !sub.hidden) {
-                // Alarm / VPN / etc: sits to the left of cellular
-                CGRect of = [sub.superview convertRect:sub.frame toView:root];
-                of.origin.x = rightEdge - of.size.width;
-                of.origin.y = (H - of.size.height) / 2.0;
-                sub.frame = [root convertRect:of toView:sub.superview];
-                sub.hidden = NO;
-                rightEdge = of.origin.x - 4.0;
-            }
-        }
+    if (needsWrite) {
+        L16DBG(@"Writing %@ = %@ into %@", kProviderKey, kSplitProvider, kUIKitDomain);
+        CFPreferencesSetAppValue(
+            (__bridge CFStringRef)kProviderKey,
+            (__bridge CFStringRef)kSplitProvider,
+            (__bridge CFStringRef)kUIKitDomain);
+        CFPreferencesAppSynchronize((__bridge CFStringRef)kUIKitDomain);
+    } else {
+        L16DBG(@"Split provider already set, skipping write");
     }
 }
 
-%group StatusBarModern
+static void L16RemoveSplitProvider(void) {
+    CFStringRef current = (CFStringRef)CFPreferencesCopyAppValue(
+        (__bridge CFStringRef)kProviderKey,
+        (__bridge CFStringRef)kUIKitDomain);
 
-%hook _UIStatusBarForegroundView
-- (void)layoutSubviews {
-    %orig;
-
-    static BOOL screenLogged = NO;
-    if (!screenLogged) {
-        screenLogged = YES;
-        @try {
-            UIScreen *sc = [UIScreen mainScreen];
-            L16DBG(@"screen: bounds=%@ scale=%.2f native=%@", NSStringFromCGRect(sc.bounds),
-                sc.scale, NSStringFromCGRect(sc.nativeBounds));
-        } @catch (NSException *e) {
-            L16DBG(@"screen log skipped: %@", e.name);
+    if (current) {
+        if (CFGetTypeID(current) == CFStringGetTypeID() &&
+            CFStringCompare(current, (__bridge CFStringRef)kSplitProvider, 0) == kCFCompareEqualTo) {
+            L16DBG(@"Removing %@ from %@", kProviderKey, kUIKitDomain);
+            CFPreferencesSetAppValue(
+                (__bridge CFStringRef)kProviderKey,
+                NULL,
+                (__bridge CFStringRef)kUIKitDomain);
+            CFPreferencesAppSynchronize((__bridge CFStringRef)kUIKitDomain);
         }
+        CFRelease(current);
     }
-
-    L16LogItemFrames(self, @"pre");
-    L16LayoutSplit(self);
-    L16LogItemFrames(self, @"post");
 }
-%end
-
-%end
 
 // ============================================================
 // Dock (iPad / floating)
@@ -659,11 +527,12 @@ static void L16DBG(NSString *fmt, ...) {
 %ctor {
     @autoreleasepool {
         L16DBG(@"ctor in %@ pid=%d", [[NSBundle mainBundle] bundleIdentifier], getpid());
-        L16DBG(@"providers: S58=%d S61=%d PAD=%d RPAD=%d", 
+        L16DBG(@"providers: S58=%d S61=%d PAD=%d RPAD=%d S1170=%d", 
             NSClassFromString(@"_UIStatusBarVisualProvider_Split58") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Split61") != nil,
             NSClassFromString(@"_UIStatusBarVisualProvider_Pad_ForcedCellular") != nil,
-            NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil);
+            NSClassFromString(@"_UIStatusBarVisualProvider_RoundedPad_ForcedCellular") != nil,
+            NSClassFromString(@"_UIStatusBarVisualProvider_Split1170") != nil);
         loadPreferences();
         %init(Diagnostics);
 
@@ -675,9 +544,17 @@ static void L16DBG(NSString *fmt, ...) {
 
         %init(Core);
 
-        if (statusBarStyle == 1) %init(StatusBarPad);
-        else if (statusBarStyle == 2) %init(StatusBarModern);
-        else if (statusBarStyle == 3) %init(StatusBarRoundedPad);
+        if (statusBarStyle == 1) {
+            %init(StatusBarPad);
+            L16RemoveSplitProvider();   // clean up if switching away from style 2
+        } else if (statusBarStyle == 2) {
+            L16EnsureSplitProvider();   // RdarFix approach: preference-based split
+        } else if (statusBarStyle == 3) {
+            %init(StatusBarRoundedPad);
+            L16RemoveSplitProvider();   // clean up if switching away from style 2
+        } else {
+            L16RemoveSplitProvider();   // style 0 (Legacy): clean up
+        }
 
         if (dockStyle == 1) {
             %init(DockiPad);
