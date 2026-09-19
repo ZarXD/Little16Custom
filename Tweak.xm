@@ -192,6 +192,44 @@ static void L16RemoveSplitProvider(void) {
 }
 
 // ============================================================
+// iPhone X split status bar insets adjustment:
+// By default, FixedSplit assumes curved OLED corners and notch,
+// causing leading (clock/carrier) and trailing (battery) items
+// to be pushed too far outward (~25pt off screen edges).
+// We inset leading and trailing by +25pt so everything is
+// fully visible and nicely padded on iPhone 8 Plus screen.
+// ============================================================
+
+@interface _UIStatusBarVisualProvider_FixedSplit : NSObject
+- (NSDirectionalEdgeInsets)leadingEdgeInsets;
+- (NSDirectionalEdgeInsets)trailingEdgeInsets;
+@end
+
+%group StatusBarSplitFix
+
+%hook _UIStatusBarVisualProvider_FixedSplit
+
+- (NSDirectionalEdgeInsets)leadingEdgeInsets {
+    NSDirectionalEdgeInsets insets = %orig;
+    CGFloat oldL = insets.leading;
+    insets.leading += 25.0;
+    L16DBG(@"leadingEdgeInsets: orig.leading=%.1f -> new.leading=%.1f (top=%.1f)", oldL, insets.leading, insets.top);
+    return insets;
+}
+
+- (NSDirectionalEdgeInsets)trailingEdgeInsets {
+    NSDirectionalEdgeInsets insets = %orig;
+    CGFloat oldT = insets.trailing;
+    insets.trailing += 25.0;
+    L16DBG(@"trailingEdgeInsets: orig.trailing=%.1f -> new.trailing=%.1f (top=%.1f)", oldT, insets.trailing, insets.top);
+    return insets;
+}
+
+%end
+
+%end
+
+// ============================================================
 // Dock (iPad / floating)
 // ============================================================
 
@@ -582,6 +620,7 @@ static void L16DBG(NSString *fmt, ...) {
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
+            %init(StatusBarSplitFix);
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
