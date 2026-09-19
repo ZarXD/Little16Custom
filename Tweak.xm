@@ -713,10 +713,6 @@ static void L16RemoveSplitProvider(void) {
 // Lock screen quick actions
 // ============================================================
 
-@interface CSCombinedListViewController : UIViewController
-- (UIEdgeInsets)_listViewDefaultContentInsets;
-@end
-
 @interface CSQuickActionsView : UIView
 - (UIEdgeInsets)_buttonOutsets;
 @property (nonatomic, strong) UIControl *flashlightButton;
@@ -726,15 +722,13 @@ static void L16RemoveSplitProvider(void) {
 @interface CSQuickActionsViewController : NSObject
 @end
 
-%group QuickActions
+@interface NCNotificationListView : UIView
+@end
 
-%hook CSCombinedListViewController
-- (UIEdgeInsets)_listViewDefaultContentInsets {
-    UIEdgeInsets insets = %orig;
-    insets.bottom += 90.0;
-    return insets;
-}
-%end
+@interface CSFullscreenNotificationView : UIView
+@end
+
+%group QuickActions
 
 %hook UIWindow
 - (UIEdgeInsets)safeAreaInsets {
@@ -760,8 +754,7 @@ static void L16RemoveSplitProvider(void) {
 
 - (void)_layoutQuickActionButtons {
     CGRect const screenBounds = [UIScreen mainScreen].bounds;
-    // Push buttons lower so they don't overlap notifications (changed 90 to 50)
-    CGFloat const y = screenBounds.size.height - 50 - [self _buttonOutsets].top;
+    CGFloat const y = screenBounds.size.height - 90 - [self _buttonOutsets].top;
     [self flashlightButton].frame = CGRectMake(46, y, 50, 50);
     [self cameraButton].frame = CGRectMake(screenBounds.size.width - 96, y, 50, 50);
 }
@@ -773,6 +766,22 @@ static void L16RemoveSplitProvider(void) {
 }
 - (BOOL)hasCamera { return YES; }
 - (BOOL)hasFlashlight { return YES; }
+%end
+
+%hook NCNotificationListView
+- (void)setFrame:(CGRect)frame {
+    if ([[NSProcessInfo processInfo] isOperatingSystemAtLeastVersion:(NSOperatingSystemVersion){16, 0, 0}]) {
+        frame = CGRectMake(0, -100, frame.size.width, frame.size.height);
+    }
+    %orig(frame);
+}
+%end
+
+%hook CSFullscreenNotificationView
+- (void)setFrame:(CGRect)frame {
+    frame = CGRectMake(0, -50, frame.size.width, frame.size.height);
+    %orig(frame);
+}
 %end
 
 %end
@@ -911,7 +920,8 @@ static void L16DBG(NSString *fmt, ...) {
 
         if (enableQuickActions) {
             %init(QuickActions,
-                  CSCombinedListViewController = NSClassFromString(@"CSCombinedListViewController"),
+                  NCNotificationListView = NSClassFromString(@"NCNotificationListView"),
+                  CSFullscreenNotificationView = NSClassFromString(@"CSFullscreenNotificationView"),
                   CSQuickActionsView = NSClassFromString(@"CSQuickActionsView"),
                   CSQuickActionsViewController = NSClassFromString(@"CSQuickActionsViewController"));
         }
