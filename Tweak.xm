@@ -240,6 +240,53 @@ static void L16RemoveSplitProvider(void) {
 
 
 
+%group StatusBarSplitFix
+
+%hook _UIStatusBarVisualProvider_Split1170
+
++ (double)nativeDisplayWidth {
+    return 414.0; // Exact width of iPhone 8 Plus, prevents elements from squishing
+}
+
++ (CGSize)notchSize {
+    // Smaller faux notch so the left and right regions have more than enough space
+    return CGSizeMake(100.0, 30.0);
+}
+
+- (UIFont *)clockFont {
+    return [UIFont boldSystemFontOfSize:15.0]; // Force bold clock
+}
+
+- (UIFont *)stringItemFont {
+    return [UIFont boldSystemFontOfSize:15.0];
+}
+
+- (CGFloat)itemSpacing {
+    return 6.0; // Give space between signal, wifi, battery
+}
+
+- (NSDirectionalEdgeInsets)expandedEdgeInsets {
+    NSDirectionalEdgeInsets insets = %orig;
+    insets.leading = 15.0;
+    insets.trailing = 15.0;
+    return insets;
+}
+
+%end
+
+%hook _UIStatusBarStringView
+- (void)setText:(NSString *)text {
+    %orig(text);
+    if ([text containsString:@":"] && text.length >= 3 && text.length <= 10) {
+        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:15.0];
+    }
+}
+%end
+
+%end
+
+
+
 // ============================================================
 // Banner notification fix: SBBannerWindow safeAreaInsets
 // When Split status bar is active (style 2), the status bar
