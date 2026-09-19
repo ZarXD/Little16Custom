@@ -173,17 +173,69 @@ static void L16LogItemFrames(UIView *root, NSString *tag) {
     if (L16SplitLogCount >= 30) return;
     L16SplitLogCount++;
     NSMutableString *s = [NSMutableString string];
-    for (UIView *v in root.subviews) {
-        if ([v isKindOfClass:NSClassFromString(@"_UIStatusBarCellularSignalView")] ||
-            [v isKindOfClass:NSClassFromString(@"_UIStatusBarWifiSignalView")] ||
-            [v isKindOfClass:NSClassFromString(@"_UIStaticBatteryView")] ||
-            [v isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
-            [s appendFormat:@"%@=%.0f,%.0f %.0fx%.0f | ",
-                NSStringFromClass([v class]), v.frame.origin.x, v.frame.origin.y,
-                v.frame.size.width, v.frame.size.height];
+    NSArray *classes = @[
+        @"_UIStatusBarCellularSignalView", @"_UIStatusBarWifiSignalView",
+        @"_UIStaticBatteryView", @"_UIStatusBarStringView"
+    ];
+    for (NSString *klass in classes) {
+        UIView *v = L16FindClassInView(root, klass, 8);
+        if (v && v.superview) {
+            CGRect fr = [v.superview convertRect:v.frame toView:root];
+            [s appendFormat:@"%@=%.0f,%.0f %.0fx%.0f | ", klass,
+                fr.origin.x, fr.origin.y, fr.size.width, fr.size.height];
         }
     }
     L16DBG(@"FG[%@] %@", tag, s);
+}
+
+static UIView *sL16Container = nil;
+
+// Reparent cellular + wifi into our OWN full-width container glued to the
+// right edge (just left of the battery). Once they are no longer DIRECT
+// subviews of ForegroundView, stock layout can't reset them; the icon views
+// themselves are the SAME Apple views, so assets stay pixel-identical.
+static void L16LayoutSplit(UIView *root) {
+    CGFloat W = root.bounds.size.width;
+    if (W <= 0) return;
+
+    if (!sL16Container || sL16Container.superview != root) {
+        sL16Container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, W, 20)];
+        sL16Container.userInteractionEnabled = NO;
+        [root addSubview:sL16Container];
+    }
+    sL16Container.frame = CGRectMake(0, 0, W, 20);
+
+    UIView *batt = L16FindClassInView(root, @"_UIStaticBatteryView", 0);
+    UIView *wifi = L16FindClassInView(root, @"_UIStatusBarWifiSignalView", 0);
+    UIView *cell = L16FindClassInView(root, @"_UIStatusBarCellularSignalView", 0);
+    if (!wifi && !cell) return;
+
+    CGFloat rightX = W - 6.0;
+    if (batt && batt.superview) {
+        CGRect bf = [batt.superview convertRect:batt.frame toView:root];
+        rightX = bf.origin.x - 4.0;
+    }
+
+    if (wifi && wifi.superview != sL16Container) [sL16Container addSubview:wifi];
+    if (cell && cell.superview != sL16Container) [sL16Container addSubview:cell];
+
+    // Drop stale clones stock replaced (avoids ghost icons).
+    for (UIView *v in [sL16Container.subviews copy]) {
+        if (v != wifi && v != cell) [v removeFromSuperview];
+    }
+
+    CGFloat gap = 4.0;
+    if (wifi) {
+        CGRect f = wifi.frame;
+        if (f.size.width > 0) f.origin.x = rightX - f.size.width;
+        wifi.frame = f;
+        rightX = f.origin.x - gap;
+    }
+    if (cell) {
+        CGRect f = cell.frame;
+        if (f.size.width > 0) f.origin.x = rightX - f.size.width;
+        cell.frame = f;
+    }
 }
 
 static void L16LayoutSplit(UIView *root) {
@@ -228,26 +280,6 @@ static void L16LayoutSplit(UIView *root) {
     }
 
     L16LogItemFrames(self, @"pre");
-
-    // One-time: detach item views from autolayout so our manual frames stick
-    // (stock keeps rewriting legacy frames between layout passes).
-    static BOOL freed = NO;
-    if (!freed) {
-        freed = YES;
-        NSMutableArray *toRemove = [NSMutableArray array];
-        for (NSLayoutConstraint *c in self.constraints) {
-            if ([self.subviews containsObject:c.firstItem] ||
-                [self.subviews containsObject:c.secondItem]) {
-                [toRemove addObject:c];
-            }
-        }
-        [self removeConstraints:toRemove];
-        for (UIView *v in self.subviews) {
-            [v removeConstraints:v.constraints];
-            v.translatesAutoresizingMaskIntoConstraints = YES;
-        }
-    }
-
     L16LayoutSplit(self);
     L16LogItemFrames(self, @"post");
 }
