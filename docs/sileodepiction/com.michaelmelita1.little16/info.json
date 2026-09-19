@@ -1,0 +1,30 @@
+{
+  "class": "Package",
+  "packageid": "com.michaelmelita1.little16",
+  "name": "Little16",
+  "version": "1.0.0",
+  "author": "michaelmelita1",
+  "maintainer": "michaelmelita1",
+  "section": "Tweaks",
+  "description": "iPhone X gestures &amp; UI for home-button iPhones on iOS 16. Swipe-up home, app switcher, control center, floating dock, rounded dock recents &amp; app switcher, dan status bar ala iPhone X tanpa ganti resolusi atau red bar. Semua bisa diatur di Settings > Little16.",
+  "depiction": "https://zarxd.github.io/Little16Custom/",
+  "sileoDepiction": "https://zarxd.github.io/Little16Custom/sileodepiction/com.michaelmelita1.little16/info.json",
+  "minOSVersion": "16.0",
+  "maxOSVersion": "16.7",
+  "families": [
+    "iphone"
+  ],
+  "tags": [
+    "Gestures",
+    "Status Bar",
+    "Dock",
+    "Control Center",
+    "UIKit",
+    "compatible::ios",
+    "enabled::native"
+  ],
+  "screenshots": [],
+  "changelog": {
+    "1.0.0": "Rilis pertama."
+  }
+}

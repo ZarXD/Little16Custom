@@ -8,7 +8,8 @@ Fork of [Little16](https://github.com/michaelmelita1/Little16) with a Preference
 
 - iPhone X fluid gestures (home, app switcher, Control Center)
 - **Customizable Control Center position**: Top Right (status bar drag), Bottom Right, Bottom Left, or Disabled
-- **Status bar style**: Legacy (original) or iPad
+- **Status bar style**: Legacy, iPad, **iPhone X (split)**, or Rounded iPad
+  - The "iPhone X" look relocates items in the existing bar (time left, signal/wifi/battery right) — **no resolution change, no `rdar` red bar**
 - **Floating dock style**: Legacy or iPad
   - Hide dock background
   - Enable/disable recent apps in dock
@@ -50,6 +51,22 @@ make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide     # roothide
 ```
 
 The `.deb` file(s) will be in `./packages/`.
+
+## Website & Sileo repo
+
+Landing page + Sileo repository live in [`docs/`](docs/) (deployed on GitHub Pages).
+
+- **Source (add di Sileo):** `https://zarxd.github.io/Little16Custom`
+- **Repo Files** (`Packages`, `Packages.gz`, `Release`, `products/*.deb`) di-generate saat workflow **Deploy Pages** jalan (tiap push), atau manual dengan:
+
+```bash
+bash scripts/makerepo.sh   # butuh gh + dpkg-dev
+```
+
+Setup GitHub Pages sekali:
+1. Repo Settings → Pages → Source **GitHub Actions**.
+2. Push apa pun ke `master` → workflow `Deploy Pages` membuild debs, generate `Packages`/`Release`, lalu deploy situs + repo.
+3. Di Sileo: **Sources → Add** → `zarxd.github.io/Little16Custom`.
 
 ## Installing
 
