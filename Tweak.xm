@@ -212,7 +212,7 @@ static void L16RemoveSplitProvider(void) {
 - (NSDirectionalEdgeInsets)leadingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
     CGFloat oldL = insets.leading;
-    insets.leading += 25.0;
+    insets.leading += 48.0;
     L16DBG(@"leadingEdgeInsets: orig.leading=%.1f -> new.leading=%.1f (top=%.1f)", oldL, insets.leading, insets.top);
     return insets;
 }
@@ -220,7 +220,7 @@ static void L16RemoveSplitProvider(void) {
 - (NSDirectionalEdgeInsets)trailingEdgeInsets {
     NSDirectionalEdgeInsets insets = %orig;
     CGFloat oldT = insets.trailing;
-    insets.trailing += 25.0;
+    insets.trailing += 48.0;
     L16DBG(@"trailingEdgeInsets: orig.trailing=%.1f -> new.trailing=%.1f (top=%.1f)", oldT, insets.trailing, insets.top);
     return insets;
 }
