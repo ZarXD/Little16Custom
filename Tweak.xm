@@ -238,141 +238,7 @@ static void L16RemoveSplitProvider(void) {
 @interface _UIStatusBarStringView : UILabel
 @end
 
-%group StatusBarSplitFix
 
-static BOOL L16IsTimeString(NSString *str) {
-    if (!str || str.length < 3 || str.length > 12) return NO;
-    BOOL hasDigit = NO;
-    BOOL hasSep = NO;
-    for (NSUInteger i = 0; i < str.length; i++) {
-        unichar c = [str characterAtIndex:i];
-        if (c >= '0' && c <= '9') hasDigit = YES;
-        if (c == ':' || c == '.') hasSep = YES;
-    }
-    return hasDigit && hasSep;
-}
-
-%hook _UIStatusBarVisualProvider_Split
-
-- (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (UIFont *)pillFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (UIFont *)pillSmallFont {
-    return [UIFont boldSystemFontOfSize:14.5];
-}
-
-- (UIFont *)stringItemFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (CGFloat)itemSpacing {
-    return 4.0;
-}
-
-%end
-
-%hook _UIStatusBarVisualProvider_Split1170
-
-- (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (UIFont *)pillFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (UIFont *)pillSmallFont {
-    return [UIFont boldSystemFontOfSize:14.5];
-}
-
-- (UIFont *)stringItemFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (CGFloat)itemSpacing {
-    return 4.0;
-}
-
-%end
-
-%hook _UIStatusBarVisualProvider_FixedSplit
-
-- (UIFont *)clockFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (UIFont *)pillFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (UIFont *)pillSmallFont {
-    return [UIFont boldSystemFontOfSize:14.5];
-}
-
-- (UIFont *)stringItemFont {
-    return [UIFont boldSystemFontOfSize:16.0];
-}
-
-- (CGFloat)itemSpacing {
-    return 6.0;
-}
-
-%end
-
-%hook _UIStatusBarStringView
-
-- (void)layoutSubviews {
-    %orig;
-    UILabel *lbl = (UILabel *)self;
-    if (L16IsTimeString(lbl.text)) {
-        lbl.font = [UIFont boldSystemFontOfSize:16.0];
-    }
-}
-
-- (void)applyStyleAttributes:(id)arg1 {
-    %orig;
-    UILabel *lbl = (UILabel *)self;
-    if (L16IsTimeString(lbl.text)) {
-        lbl.font = [UIFont boldSystemFontOfSize:16.0];
-    }
-}
-
-- (void)setAttributedText:(NSAttributedString *)attr {
-    if (attr && L16IsTimeString([attr string])) {
-        NSMutableAttributedString *m = [attr mutableCopy];
-        [m addAttribute:NSFontAttributeName 
-                  value:[UIFont boldSystemFontOfSize:16.0] 
-                  range:NSMakeRange(0, m.length)];
-        %orig(m);
-        return;
-    }
-    %orig(attr);
-}
-
-- (void)setFont:(UIFont *)font {
-    UILabel *lbl = (UILabel *)self;
-    if (L16IsTimeString(lbl.text)) {
-        %orig([UIFont boldSystemFontOfSize:16.0]);
-        return;
-    }
-    %orig(font);
-}
-
-- (void)setText:(NSString *)text {
-    %orig(text);
-    if (L16IsTimeString(text)) {
-        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:16.0];
-    }
-}
-
-%end
-
-%end
 
 // ============================================================
 // Banner notification fix: SBBannerWindow safeAreaInsets
@@ -770,11 +636,7 @@ static void L16DBG(NSString *fmt, ...) {
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
-            %init(StatusBarSplitFix,
-                _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
-                _UIStatusBarVisualProvider_Split1170 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1170"),
-                _UIStatusBarVisualProvider_Split = NSClassFromString(@"_UIStatusBarVisualProvider_Split"),
-                _UIStatusBarStringView = NSClassFromString(@"_UIStatusBarStringView"));
+
             %init(BannerFix,
                 SBBannerWindow = NSClassFromString(@"SBBannerWindow"));
         } else if (statusBarStyle == 3) {
