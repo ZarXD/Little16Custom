@@ -203,6 +203,16 @@ static void L16RemoveSplitProvider(void) {
 @interface _UIStatusBarVisualProvider_FixedSplit : NSObject
 - (NSDirectionalEdgeInsets)leadingEdgeInsets;
 - (NSDirectionalEdgeInsets)trailingEdgeInsets;
+- (CGSize)notchSize;
+- (UIFont *)clockFont;
+- (CGFloat)itemSpacing;
++ (CGSize)notchSize;
++ (double)baseFontSize;
+@end
+
+@interface _UIStatusBarVisualProvider_Split1080 : _UIStatusBarVisualProvider_FixedSplit
++ (CGSize)notchSize;
+- (CGFloat)itemSpacing;
 @end
 
 %group StatusBarSplitFix
@@ -223,6 +233,47 @@ static void L16RemoveSplitProvider(void) {
     insets.trailing += 48.0;
     L16DBG(@"trailingEdgeInsets: orig.trailing=%.1f -> new.trailing=%.1f (top=%.1f)", oldT, insets.trailing, insets.top);
     return insets;
+}
+
+- (CGSize)notchSize {
+    CGSize sz = %orig;
+    L16DBG(@"FixedSplit -notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
+    sz.width = 60.0;
+    return sz;
+}
+
++ (CGSize)notchSize {
+    CGSize sz = %orig;
+    L16DBG(@"FixedSplit +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
+    sz.width = 60.0;
+    return sz;
+}
+
+- (UIFont *)clockFont {
+    return [UIFont monospacedDigitSystemFontOfSize:14.5 weight:UIFontWeightSemibold];
+}
+
+- (CGFloat)itemSpacing {
+    return 6.0;
+}
+
++ (double)baseFontSize {
+    return 14.0;
+}
+
+%end
+
+%hook _UIStatusBarVisualProvider_Split1080
+
++ (CGSize)notchSize {
+    CGSize sz = %orig;
+    L16DBG(@"Split1080 +notchSize orig: (%.1f, %.1f)", sz.width, sz.height);
+    sz.width = 60.0;
+    return sz;
+}
+
+- (CGFloat)itemSpacing {
+    return 6.0;
 }
 
 %end
@@ -620,7 +671,9 @@ static void L16DBG(NSString *fmt, ...) {
             L16RemoveSplitProvider();   // clean up if switching away from style 2
         } else if (statusBarStyle == 2) {
             L16EnsureSplitProvider();   // RdarFix approach: preference-based split
-            %init(StatusBarSplitFix);
+            %init(StatusBarSplitFix,
+                _UIStatusBarVisualProvider_FixedSplit = NSClassFromString(@"_UIStatusBarVisualProvider_FixedSplit"),
+                _UIStatusBarVisualProvider_Split1080 = NSClassFromString(@"_UIStatusBarVisualProvider_Split1080"));
         } else if (statusBarStyle == 3) {
             %init(StatusBarRoundedPad);
             L16RemoveSplitProvider();   // clean up if switching away from style 2
