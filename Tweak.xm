@@ -11,7 +11,7 @@ static NSString *const kPrefsID = @"com.michaelmelita1.little16";
 static NSString *const kNotification = @"com.michaelmelita1.little16/prefsUpdated";
 
 static BOOL enabled = YES;
-static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = Modern (13-15), 3 = Pro (14)
+static NSInteger statusBarStyle = 1;      // 0 = Legacy, 1 = iPad, 2 = Rounded iPad
 static NSInteger dockStyle = 1;           // 0 = Legacy, 1 = iPad (floating)
 static NSInteger ccPosition = 3;          // 3 = Top Right (status bar), 1 = Bottom Right, 2 = Bottom Left, 0 = Disabled
 static BOOL hideDockBackground = NO;
@@ -115,28 +115,12 @@ static void RoundIconsInView(UIView *view, CGFloat radius) {
 
 %end
 
-// Modern notched style (iPhone X / 11 / 13-15 look, no resolution change).
-// Same provider-swap technique used by LittleXS / Poseidon / HalFiPad.
-%group StatusBarModern
+// Rounded iPad style (exists on iOS 16; used by LittleXS for round-corner screens)
+%group StatusBarRoundedPad
 
 %hook _UIStatusBarVisualProvider_iOS
 + (Class)class {
-    Class provider = NSClassFromString(@"_UIStatusBarVisualProvider_Split58");
-    if (provider) return provider;
-    return %orig;
-}
-%end
-
-%end
-
-// iPhone 14 Pro style.
-%group StatusBarPro
-
-%hook _UIStatusBarVisualProvider_iOS
-+ (Class)class {
-    Class provider = NSClassFromString(@"_UIStatusBarVisualProvider_Split61");
-    if (provider) return provider;
-    return %orig;
+    return %c(_UIStatusBarVisualProvider_RoundedPad_ForcedCellular);
 }
 %end
 
@@ -498,8 +482,7 @@ static void L16DBG(NSString *fmt, ...) {
         %init(Core);
 
         if (statusBarStyle == 1) %init(StatusBarPad);
-        else if (statusBarStyle == 2) %init(StatusBarModern);
-        else if (statusBarStyle == 3) %init(StatusBarPro);
+        else if (statusBarStyle == 2) %init(StatusBarRoundedPad);
 
         if (dockStyle == 1) {
             %init(DockiPad);
