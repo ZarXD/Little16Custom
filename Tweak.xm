@@ -341,15 +341,17 @@ static BOOL L16IsTimeString(NSString *str) {
 
 - (void)layoutSubviews {
     %orig;
-    if (L16IsTimeString(self.text)) {
-        self.font = [UIFont boldSystemFontOfSize:16.0];
+    UILabel *lbl = (UILabel *)self;
+    if (L16IsTimeString(lbl.text)) {
+        lbl.font = [UIFont boldSystemFontOfSize:16.0];
     }
 }
 
 - (void)applyStyleAttributes:(id)arg1 {
     %orig;
-    if (L16IsTimeString(self.text)) {
-        self.font = [UIFont boldSystemFontOfSize:16.0];
+    UILabel *lbl = (UILabel *)self;
+    if (L16IsTimeString(lbl.text)) {
+        lbl.font = [UIFont boldSystemFontOfSize:16.0];
     }
 }
 
@@ -366,7 +368,8 @@ static BOOL L16IsTimeString(NSString *str) {
 }
 
 - (void)setFont:(UIFont *)font {
-    if (L16IsTimeString(self.text)) {
+    UILabel *lbl = (UILabel *)self;
+    if (L16IsTimeString(lbl.text)) {
         %orig([UIFont boldSystemFontOfSize:16.0]);
         return;
     }
@@ -376,7 +379,7 @@ static BOOL L16IsTimeString(NSString *str) {
 - (void)setText:(NSString *)text {
     %orig(text);
     if (L16IsTimeString(text)) {
-        self.font = [UIFont boldSystemFontOfSize:16.0];
+        ((UILabel *)self).font = [UIFont boldSystemFontOfSize:16.0];
     }
 }
 
